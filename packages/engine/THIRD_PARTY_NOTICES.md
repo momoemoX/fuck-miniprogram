@@ -475,3 +475,9 @@ Files located in the node_modules and vendor directories are externally
 maintained libraries used by this software which have their own
 licenses; we recommend you read them, as their terms may differ from the
 terms above.
+
+## pdfjs-dist 5.4.624
+
+PDF viewing uses Mozilla PDF.js, under the Apache License, Version 2.0.
+Upstream: https://github.com/mozilla/pdf.js
+The license is included in `licenses/pdfjs-Apache-2.0.txt`.

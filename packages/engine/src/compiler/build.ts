@@ -347,7 +347,7 @@ export async function buildProject(projectDir: string, outDir: string): Promise<
   }
 
   // 业务 JS：整棵目录下的 .js 都包成模块，require 的相对路径不用改
-  const ASSET_EXT = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.mp3', '.mp4', '.webm', '.json', '.txt', '.br', '.zip', '.bin'];
+  const ASSET_EXT = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.mp3', '.mp4', '.webm', '.json', '.txt', '.pdf', '.br', '.zip', '.bin'];
   const jsFiles: string[] = [];
   const assetFiles: string[] = [];
   const walk = (dir: string) => {

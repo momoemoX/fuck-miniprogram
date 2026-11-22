@@ -79,6 +79,7 @@ export class FsApi {
   private changedDuringLoad = new Set<string>();
   private db: IDBDatabase | null = null;
   private disposed = false;
+  private readonly viewers = new Set<() => void>();
 
   constructor(private readonly host: WxHost) {
     this.mkdirp(USER_ROOT);
@@ -111,6 +112,8 @@ export class FsApi {
 
   dispose() {
     this.disposed = true;
+    for (const close of this.viewers) close();
+    this.viewers.clear();
     this.openFiles.clear();
     void this.ready.then(() => {
       this.db?.close();
@@ -727,9 +730,16 @@ export class FsApi {
         }),
       openDocument: (options: any) =>
         invoke('openDocument', options, async opts => {
-          const blob = await blobFromPath(opts.filePath).catch(() => null);
-          if (!blob) throw new Error('file not found');
-          window.open(URL.createObjectURL(blob), '_blank');
+          if (!opts?.filePath) throw new Error('filePath is required');
+          await this.ready;
+          const blob = await blobFromPath(opts.filePath);
+          if (this.disposed) throw new Error('file system disposed');
+          const { showDocument } = await import('../document-viewer');
+          await showDocument(this.host.overlay(), blob, opts.filePath.split('/').pop() || '文档', close => {
+            this.viewers.add(close);
+            if (this.disposed) { close(); this.viewers.delete(close); }
+            return () => { this.viewers.delete(close); };
+          });
           return {};
         }),
       saveFileToDisk: (options: any) =>

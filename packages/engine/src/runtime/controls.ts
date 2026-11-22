@@ -983,7 +983,7 @@ class WxFunctionalPageNavigator extends HTMLElement {
   }
 }
 
-class WxAd extends HTMLElement {
+class FmpAd extends HTMLElement {
   connectedCallback() {
     if (elementStates.ready.has(this)) return;
     elementStates.ready.add(this);
@@ -1015,7 +1015,7 @@ export const CONTROL_ELEMENTS: Record<string, CustomElementConstructor> = {
   'wx-live-pusher': WxLivePusher,
   'wx-official-account': WxOfficialAccount,
   'wx-functional-page-navigator': WxFunctionalPageNavigator,
-  'wx-ad': WxAd
+  'wx-ad': FmpAd
 };
 
 export const CONTROL_CSS = `

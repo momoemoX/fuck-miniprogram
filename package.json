@@ -18,7 +18,8 @@
     "playwright": "^1.65.1",
     "tsup": "^8.0.1",
     "typescript": "^5.3.2",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "esbuild": "^0.28.2"
   },
   "license": "MIT"
 }

@@ -1,10 +1,3 @@
-/**
- * 系统弹层：toast / modal / actionSheet / picker
- *
- * DOM 结构与类名和 packages/core/src/runtime/host/ui/PhoneShell.ts 一致，
- * 这样自研引擎和官方基础库链路的弹层看起来、量起来都一样。
- */
-
 export interface ToastOptions {
   title?: string;
   icon?: 'success' | 'error' | 'loading' | 'none';
@@ -34,6 +27,8 @@ export interface ActionSheetOptions {
 export interface PickerColumn {
   values: string[];
   defaultIndex?: number;
+  label?: string;
+  numeric?: boolean;
 }
 
 export interface PickerOptions {
@@ -151,8 +146,11 @@ export function showModal(
 export function showActionSheet(overlay: HTMLElement, options: ActionSheetOptions): Promise<number | null> {
   return new Promise(resolve => {
     const wrapper = document.createElement('div');
+    wrapper.className = 'fmp-dialog-layer';
     const dim = mask(true);
     const sheet = element('div', 'fmp-actionsheet');
+    sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-label', '操作菜单');
     const close = (index: number | null) => {
       wrapper.remove();
       resolve(index);
@@ -181,101 +179,116 @@ const PICKER_ITEM_HEIGHT = 48;
 
 export interface PickerSession {
   close: () => void;
+  selectedIndexes: () => number[];
   /** 列定义变化后（联动）刷新后续列 */
   update: (columns: PickerColumn[], indexes?: number[]) => void;
 }
 
-/**
- * 滚轮选择器：列可以联动（某一列滚动后返回新的列定义）。
- * DOM 结构与类名对齐官方内部实现，弹层外观才一致。
- */
 export function showPicker(overlay: HTMLElement, options: PickerOptions): PickerSession {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'fmp-picker-layer';
-
+  const wrapper = element('div', 'fmp-picker-layer fmp-dialog-layer');
   const dim = mask(true);
   const panel = element('div', 'fmp-picker');
-
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-label', options.title || '选择器');
   const header = element('div', 'fmp-picker-header');
   const cancel = element('button', 'fmp-picker-cancel', options.cancelText || '取消');
   const confirm = element('button', 'fmp-picker-confirm', options.confirmText || '确定');
   header.append(cancel, confirm);
-
+  const inputs = element('div', 'fmp-picker-inputs');
   const body = element('div', 'fmp-picker-body');
   body.append(element('div', 'fmp-picker-mask'), element('div', 'fmp-picker-indicator'));
-
   let columns = options.columns.map(column => ({ ...column }));
-  let indexes = columns.map(column => Math.min(Math.max(column.defaultIndex ?? 0, 0), Math.max(column.values.length - 1, 0)));
-  let timer: ReturnType<typeof setTimeout> | null = null;
-
+  const clamp = (value: number, index: number) => Math.min(Math.max(value, 0), Math.max(columns[index].values.length - 1, 0));
+  let indexes = columns.map((column, index) => clamp(column.defaultIndex ?? 0, index));
+  let closed = false;
+  const timers = new Map<number, ReturnType<typeof setTimeout>>();
+  const notify = (index: number) => {
+    if (closed) return;
+    const updated = options.onColumnChange?.(index, indexes[index]);
+    if (updated) {
+      columns = updated.map(column => ({ ...column }));
+      indexes = columns.map((column, i) => clamp(i <= index ? indexes[i] : column.defaultIndex ?? 0, i));
+      build(index + 1);
+    }
+  };
   const build = (from = 0) => {
-    for (const node of Array.from(body.querySelectorAll('.fmp-picker-column'))) node.remove();
-
+    for (const [index, timer] of timers) if (index >= from) { clearTimeout(timer); timers.delete(index); }
+    for (const node of Array.from(body.querySelectorAll('.fmp-picker-column')).slice(from)) node.remove();
+    for (const node of Array.from(inputs.children).slice(from)) node.remove();
     columns.forEach((column, index) => {
       if (index < from) return;
       const list = element('div', 'fmp-picker-column');
+      list.setAttribute('role', 'listbox');
+      list.setAttribute('aria-label', column.label || `第${index + 1}列`);
+      const controls = element('div', 'fmp-picker-input');
+      const input = document.createElement('input');
+      if (column.numeric) {
+        input.type = 'number';
+        input.setAttribute('aria-label', column.label || `第${index + 1}列`);
+        input.min = column.values[0] || '0';
+        input.max = column.values[column.values.length - 1] || '0';
+        input.step = '1';
+        input.value = String(Number(column.values[indexes[index]]));
+        controls.append(element('span', '', column.label), input);
+      }
+      inputs.appendChild(controls);
+      const paint = () => {
+        Array.from(list.children).forEach((item, i) => item.setAttribute('aria-selected', String(i === indexes[index])));
+        if (column.numeric) input.value = String(Number(column.values[indexes[index]]));
+      };
+      const select = (next: number) => {
+        clearTimeout(timers.get(index));
+        const changed = next !== indexes[index];
+        indexes[index] = clamp(next, index);
+        list.scrollTop = indexes[index] * PICKER_ITEM_HEIGHT;
+        paint();
+        if (changed) notify(index);
+      };
       column.values.forEach((value, valueIndex) => {
         const item = element('div', 'fmp-picker-item', value);
-        item.dataset.index = String(valueIndex);
-        item.addEventListener('click', () => {
-          list.scrollTo({ top: valueIndex * PICKER_ITEM_HEIGHT, behavior: 'smooth' });
-        });
+        item.setAttribute('role', 'option');
+        item.addEventListener('click', () => select(valueIndex));
         list.appendChild(item);
       });
-      list.dataset.index = String(index);
+      input.addEventListener('input', () => {
+        const next = column.values.findIndex(value => Number(value) === input.valueAsNumber);
+        if (next >= 0) select(next);
+      });
       list.addEventListener('scroll', () => {
-        const at = Math.round(list.scrollTop / PICKER_ITEM_HEIGHT);
-        const next = Math.min(Math.max(at, 0), Math.max(column.values.length - 1, 0));
+        if (closed || !list.isConnected) return;
+        const next = clamp(Math.round(list.scrollTop / PICKER_ITEM_HEIGHT), index);
         if (next === indexes[index]) return;
         indexes[index] = next;
-        if (timer) clearTimeout(timer);
-        timer = setTimeout(() => {
-          const updated = options.onColumnChange?.(index, next);
-          if (updated) {
-            const keep = indexes.slice(0, index + 1);
-            columns = updated.map(col => ({ ...col }));
-            indexes = columns.map((col, i) => (i < keep.length ? Math.min(keep[i], Math.max(col.values.length - 1, 0)) : Math.min(col.defaultIndex ?? 0, Math.max(col.values.length - 1, 0))));
-            build(index + 1);
-          }
-        }, 80);
+        paint();
+        clearTimeout(timers.get(index));
+        timers.set(index, setTimeout(() => notify(index), 80));
       });
-      columns[index] = column;
       body.appendChild(list);
-      requestAnimationFrame(() => {
-        list.scrollTop = indexes[index] * PICKER_ITEM_HEIGHT;
-      });
+      paint();
+      list.scrollTop = indexes[index] * PICKER_ITEM_HEIGHT;
     });
   };
-
-  build();
-  panel.append(header, body);
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    for (const timer of timers.values()) clearTimeout(timer);
+    wrapper.remove();
+  };
+  dim.addEventListener('click', () => { close(); options.onCancel?.(); });
+  cancel.addEventListener('click', () => { close(); options.onCancel?.(); });
+  confirm.addEventListener('click', () => { const result = indexes.slice(); close(); options.onConfirm(result); });
+  panel.append(header, inputs, body);
   wrapper.append(dim, panel);
   overlay.appendChild(wrapper);
-
-  const close = () => wrapper.remove();
-  dim.addEventListener('click', () => {
-    close();
-    options.onCancel?.();
-  });
-  cancel.addEventListener('click', () => {
-    close();
-    options.onCancel?.();
-  });
-  confirm.addEventListener('click', () => {
-    const result = indexes.slice();
-    close();
-    options.onConfirm(result);
-  });
-
+  build();
   return {
     close,
+    selectedIndexes: () => indexes.slice(),
     update: (next, nextIndexes) => {
+      if (closed) return;
       columns = next.map(column => ({ ...column }));
-      indexes = columns.map((column, index) => {
-        const wanted = nextIndexes?.[index] ?? (index === 0 ? indexes[index] : column.defaultIndex ?? 0);
-        return Math.min(Math.max(wanted ?? 0, 0), Math.max(column.values.length - 1, 0));
-      });
-      build(0);
+      indexes = columns.map((column, index) => clamp(nextIndexes?.[index] ?? indexes[index] ?? column.defaultIndex ?? 0, index));
+      build();
     }
   };
 }

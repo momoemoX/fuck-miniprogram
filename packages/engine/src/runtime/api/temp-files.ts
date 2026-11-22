@@ -1,8 +1,7 @@
 /**
  * 临时文件表
  *
- * 浏览器里没有 wxfile://，用 blob URL 充当临时文件路径，同时把 Blob 本身
- * 记下来：saveFile / getFileInfo / uploadFile 都靠这张表还原内容。
+ * 对外提供虚拟文件路径，浏览器解码使用独立的 Blob URL。
  */
 
 import { uid } from './util';
@@ -28,7 +27,8 @@ export function setPathResolver(fn: (path: string) => Blob | undefined) {
 
 export function addTempFile(blob: Blob, name?: string, type?: string): TempFile {
   const url = URL.createObjectURL(blob);
-  const path = url;
+  const extension = name?.match(/\.[a-z0-9]+$/i)?.[0] ?? '';
+  const path = `wxfile://tmp/${uid()}${extension}`;
   const record: TempFile = {
     path,
     url,
@@ -68,10 +68,19 @@ export async function blobFromPath(path: string, signal?: AbortSignal): Promise<
   if (record) return record.blob;
   const local = resolvePath?.(path);
   if (local) return local;
+  if (path.startsWith('wxfile://')) throw new Error('file not found');
   if (path.startsWith('data:')) return (await fetch(path, { signal })).blob();
   const response = await fetch(path, { signal });
   if (!response.ok) throw new Error(`read file failed: ${path}`);
   return response.blob();
+}
+
+export async function mediaSource(path: string, signal?: AbortSignal): Promise<{ url: string; release(): void }> {
+  const record = files.get(path);
+  if (record) return { url: record.url, release() {} };
+  if (!path.startsWith('wxfile://')) return { url: path, release() {} };
+  const url = URL.createObjectURL(await blobFromPath(path, signal));
+  return { url, release: () => URL.revokeObjectURL(url) };
 }
 
 export function listTempFiles(): TempFile[] {

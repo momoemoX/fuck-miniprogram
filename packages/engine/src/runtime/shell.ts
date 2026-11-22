@@ -120,7 +120,28 @@ html, body { margin: 0; height: 100%; background: radial-gradient(120% 80% at 50
 .fmp-tabbar-dot { position: absolute; top: -2px; left: calc(100% - 2px); width: 8px; height: 8px; border-radius: 50%; background: #fa5151; }
 .fmp-tabbar-text > .fmp-tabbar-badge { top: -10px; left: calc(100% + 1px); }
 .fmp-tabbar-text > .fmp-tabbar-dot { top: -3px; left: calc(100% + 1px); }
-.fmp-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
+.fmp-overlay { position: absolute; top: 0; right: 0; left: 0; height: 100%; pointer-events: none; z-index: 10; }
+.fmp-dialog-layer { position: absolute; inset: 0; pointer-events: none; }
+.fmp-picker-inputs { display: flex; }
+.fmp-picker-input { flex: 1; min-width: 0; display: flex; justify-content: center; align-items: center; gap: 6px; }
+.fmp-picker-input input { width: 5em; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font: inherit; }
+.fmp-preview { position: absolute; inset: 0; z-index: 100; background: #000; color: #fff; pointer-events: auto; }
+.fmp-preview-content { position: absolute; inset: 44px 0; display: flex; align-items: center; justify-content: center; }
+.fmp-preview-content img, .fmp-preview-content video { display: block; width: 100%; height: 100%; object-fit: contain; }
+.fmp-preview button { position: absolute; z-index: 1; border: 0; border-radius: 4px; background: rgba(0,0,0,.55); color: #fff; font-size: 36px; cursor: pointer; }
+.fmp-preview-prev, .fmp-preview-next { top: 45%; padding: 8px 12px; }
+.fmp-preview-prev { left: 8px; }
+.fmp-preview-next { right: 8px; }
+.fmp-preview-close { right: 8px; top: 4px; }
+.fmp-preview-position { position: absolute; bottom: 12px; left: 0; right: 0; text-align: center; pointer-events: none; }
+.fmp-document { position: absolute; inset: 0; z-index: 100; background: #f2f2f2; color: #222; pointer-events: auto; display: flex; flex-direction: column; }
+.fmp-document header { display: flex; gap: 12px; align-items: center; padding: 12px; background: #fff; }
+.fmp-document header span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fmp-document button { border: 0; background: #f2f2f2; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+.fmp-document-body { flex: 1; min-height: 0; overflow: auto; padding: 12px; }
+.fmp-document-body canvas { display: block; max-width: 100%; margin: 0 auto; background: #fff; }
+.fmp-document-text { background: #fff; padding: 8px; margin-bottom: 12px; white-space: pre-wrap; }
+.fmp-document-text p { margin: 4px 0; }
 .fmp-refresher { position: absolute; top: 0; left: 0; right: 0; height: 64px; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1; color: #666; font-size: 13px; }
 .fmp-refresher[data-style="light"] { color: #fff; }
 .fmp-refresher-icon { width: 20px; height: 20px; border: 2px solid currentColor; border-radius: 50%; box-sizing: border-box; display: none; }
@@ -138,7 +159,7 @@ html, body { margin: 0; height: 100%; background: radial-gradient(120% 80% at 50
 .fmp-modal-actions { display: flex; border-top: 1px solid rgba(0,0,0,.1); }
 .fmp-modal-actions button { flex: 1; height: 50px; border: 0; background: none; font-size: 17px; font-weight: 600; cursor: pointer; }
 .fmp-modal-actions button + button { border-left: 1px solid rgba(0,0,0,.1); }
-.fmp-actionsheet { position: absolute; left: 0; right: 0; bottom: 0; background: #f7f7f7; border-radius: 12px 12px 0 0; overflow: hidden; pointer-events: auto; }
+.fmp-actionsheet { position: absolute; left: 0; right: 0; bottom: 0; padding-bottom: var(--fmp-safe-bottom, 0px); background: #f7f7f7; border-radius: 12px 12px 0 0; overflow: hidden; pointer-events: auto; }
 .fmp-actionsheet-alert { padding: 16px; font-size: 13px; color: #888; text-align: center; background: #fff; }
 .fmp-actionsheet button { display: block; width: 100%; height: 56px; border: 0; border-top: 1px solid rgba(0,0,0,.06); background: #fff; font-size: 17px; cursor: pointer; }
 .fmp-actionsheet .fmp-actionsheet-cancel { margin-top: 8px; border-top: 0; }
@@ -416,6 +437,7 @@ export class PhoneShell {
     this.slot.style.height = `${height * scale}px`;
     this.device.style.left = this.device.style.top = `${DEVICE_BEZEL * scale}px`;
     this.device.style.transform = scale === 1 ? '' : `scale(${scale})`;
+    this.overlay.style.maxHeight = `${Math.max(0, (window.innerHeight - this.overlay.getBoundingClientRect().top) / scale)}px`;
     this.scaleButton.textContent = `${Math.round(scale * 100)}%`;
     this.scaleButton.title = this.scaleMode === 'fit' ? '适应窗口，点击切换为实际大小' : '实际大小，点击切换为适应窗口';
   }

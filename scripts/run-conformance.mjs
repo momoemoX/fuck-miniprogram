@@ -37,15 +37,22 @@ const selectedIds = selectedIdsRaw
   : null;
 const runVisual = hasFlag('visual');
 const visualOnly = hasFlag('visual-only');
+const runInteractive = hasFlag('interactive') || hasFlag('interactive-only');
+const interactiveOnly = hasFlag('interactive-only');
+const interactiveReport = path.resolve(repoRoot, option('interactive-out', '.tmp/interactive-report.json'));
+const interactiveShots = path.resolve(repoRoot, option('interactive-screenshots', '.tmp/interactive-screenshots'));
+const interactiveIds = option('interactive-ids', null);
+const interactiveControls = path.resolve(repoRoot, option('interactive-controls', 'scripts/interactive-controls.json'));
 const visualFilter = option('visual-only-keys', null);
 const channel = option('channel', 'chrome');
 const timeoutMs = Number(option('timeout', '240000'));
 
 const tmpRoot = path.join(repoRoot, '.tmp');
-const workSrc = path.join(tmpRoot, 'conformance-src');
-const workDist = path.join(tmpRoot, 'conformance-dist');
-const visualShots = path.join(tmpRoot, 'visual-shots');
-const visualDiff = path.join(tmpRoot, 'visual-diff');
+const workRoot = path.resolve(repoRoot, option('work-dir', '.tmp'));
+const workSrc = path.join(workRoot, 'conformance-src');
+const workDist = path.join(workRoot, 'conformance-dist');
+const visualShots = path.join(workRoot, 'visual-shots');
+const visualDiff = path.join(workRoot, 'visual-diff');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -239,7 +246,7 @@ async function main() {
     const appUrl = `http://127.0.0.1:${appPort}/`;
     console.log(`[conformance] Serving at ${appUrl} (http:${httpPort}, ws:${wsPort})`);
 
-    if (!visualOnly) {
+    if (!visualOnly && !interactiveOnly) {
       browser = await chromium.launch({ channel });
       const context = await browser.newContext({
         viewport: { width: 375, height: 812 },
@@ -313,6 +320,16 @@ async function main() {
 
       await browser.close();
       browser = null;
+    }
+
+    if (runInteractive) {
+      const args = [path.join(suiteDir, 'tools/interactive/run.mjs'), '--url', appUrl,
+        '--out', interactiveReport, '--screenshots', interactiveShots, '--channel', channel];
+      if (interactiveIds) args.push('--ids', interactiveIds);
+      args.push('--controls', interactiveControls);
+      const status = await runAsync(process.execPath, args, { cwd: repoRoot, stdio: 'inherit' });
+      if (status !== 0) process.exitCode = 1;
+      console.log(`[interactive] Report written to ${interactiveReport} (exit ${status})`);
     }
 
     if (runVisual || visualOnly) {

@@ -193,16 +193,38 @@ export class LocationApi {
 
       openLocation: (options: any) =>
         this.call('openLocation', options, opts => {
-          if (opts?.latitude === undefined || opts?.longitude === undefined) {
-            throw new Error('parameter error: "latitude" and "longitude" are required');
-          }
-          const name = encodeURIComponent(opts.name || opts.address || '位置');
-          window.open(`https://uri.amap.com/marker?position=${opts.longitude},${opts.latitude}&name=${name}&callnative=1`, '_blank');
+          this.coordinates(opts.latitude, opts.longitude);
+          const layer = document.createElement('div');
+          layer.className = 'fmp-open-location';
+          layer.setAttribute('role', 'dialog');
+          layer.setAttribute('aria-label', '位置详情');
+          const dismiss = document.createElement('button');
+          dismiss.textContent = '关闭';
+          const name = document.createElement('h2');
+          name.textContent = opts.name || '位置';
+          const address = document.createElement('p');
+          address.textContent = opts.address || '';
+          const map = document.createElement('div');
+          map.className = 'fmp-choose-location-map';
+          const pin = document.createElement('div');
+          pin.className = 'fmp-choose-location-pin';
+          map.appendChild(pin);
+          const coordinates = document.createElement('p');
+          coordinates.textContent = `${opts.latitude}, ${opts.longitude}`;
+          const link = document.createElement('a');
+          link.textContent = '在地图中查看';
+          link.href = `https://www.openstreetmap.org/?mlat=${opts.latitude}&mlon=${opts.longitude}#map=${Math.max(1, Math.min(19, Number(opts.scale) || 16))}/${opts.latitude}/${opts.longitude}`;
+          link.target = '_blank'; link.rel = 'noopener noreferrer';
+          layer.append(dismiss, name, address, map, coordinates, link);
+          const close = () => { layer.remove(); this.dialogs.delete(close); };
+          dismiss.addEventListener('click', close);
+          this.dialogs.add(close);
+          this.host.overlay().appendChild(layer);
           return {};
         }),
 
-      chooseLocation: (options: any) => this.chooseLocation(options),
-      choosePoi: (options: any) => this.choosePoi(options)
+      chooseLocation: (options: any) => this.choosePoint('chooseLocation', options),
+      choosePoi: (options: any) => this.choosePoint('choosePoi', options)
     };
   }
 
@@ -243,124 +265,86 @@ export class LocationApi {
     );
   }
 
-  private chooseLocation(options: any) {
-    return this.call('chooseLocation', options, async () => {
-      const position = this.convert(
-        await this.current().catch(() => ({
-          latitude: 39.908823,
-          longitude: 116.39747,
-          speed: 0,
-          accuracy: 0,
-          altitude: 0,
-          verticalAccuracy: 0,
-          horizontalAccuracy: 0
-        })),
-        'gcj02'
-      );
+  private coordinates(latitude: unknown, longitude: unknown) {
+    if (typeof latitude !== 'number' || typeof longitude !== 'number' ||
+      !Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180)
+      throw new Error('latitude and longitude must be valid coordinates');
+  }
+
+  private choosePoint(method: 'chooseLocation' | 'choosePoi', options: any) {
+    return this.call(method, options, async opts => {
+      let latitude: number, longitude: number;
+      if (opts.latitude !== undefined && opts.longitude !== undefined) {
+        this.coordinates(opts.latitude, opts.longitude);
+        latitude = opts.latitude; longitude = opts.longitude;
+      } else {
+        latitude = 39.908823; longitude = 116.39747;
+      }
       if (this.disposed) throw new Error('location disposed');
-
       return new Promise((resolve, reject) => {
-        const overlay = this.host.overlay();
         const layer = document.createElement('div');
-        layer.className = 'fmp-choose-location';
-        layer.innerHTML = `
-          <div class="fmp-choose-location-panel">
-            <div class="fmp-choose-location-title">选择位置</div>
-            <div class="fmp-choose-location-map">
-              <div class="fmp-choose-location-pin"></div>
-              <div class="fmp-choose-location-hint">拖动地图调整中心点</div>
-            </div>
-            <div class="fmp-choose-location-fields">
-              <label>名称<input class="fmp-choose-location-name" value="选定位置" /></label>
-              <label>地址<input class="fmp-choose-location-address" value="当前选择的位置" /></label>
-              <label>纬度<input class="fmp-choose-location-lat" value="${round(position.latitude)}" /></label>
-              <label>经度<input class="fmp-choose-location-lng" value="${round(position.longitude)}" /></label>
-            </div>
-            <div class="fmp-choose-location-actions">
-              <button class="fmp-choose-location-cancel">取消</button>
-              <button class="fmp-choose-location-ok">确定</button>
-            </div>
-          </div>`;
-
-        const close = this.trackDialog(layer, reject);
-        layer.querySelector('.fmp-choose-location-cancel')!.addEventListener('click', () => {
-          close();
-          reject(new Error('cancel'));
+        layer.className = method === 'choosePoi' ? 'fmp-choose-poi' : 'fmp-choose-location';
+        layer.setAttribute('role', 'dialog');
+        layer.setAttribute('aria-label', '选择位置');
+        layer.innerHTML = `<div class="fmp-choose-location-panel">
+          <div class="fmp-choose-location-title">选择位置</div>
+          <div class="fmp-choose-location-map"><div class="fmp-choose-location-pin"></div></div>
+          <button class="fmp-location-center" type="button">地图中心</button><button class="fmp-location-locate" type="button">定位到当前位置</button>
+          <div class="fmp-choose-location-fields">
+            <label>名称<input name="name" value="地图中心"/></label>
+            <label>地址<input name="address"/></label>
+            <label>纬度<input name="latitude" type="number" min="-90" max="90" step="any"/></label>
+            <label>经度<input name="longitude" type="number" min="-180" max="180" step="any"/></label>
+          </div>
+          <div role="alert"></div>
+          <div class="fmp-choose-location-actions"><button type="button">取消</button><button class="fmp-choose-location-ok" type="button">确定</button></div>
+        </div>`;
+        const field = (name: string) => layer.querySelector(`input[name="${name}"]`) as HTMLInputElement;
+        const update = (lat: number, lng: number) => {
+          field('latitude').value = String(round(lat));
+          field('longitude').value = String(round(lng));
+          field('address').value = `${round(lat)}, ${round(lng)}`;
+        };
+        update(latitude, longitude);
+        layer.querySelector('.fmp-location-locate')!.addEventListener('click', () => {
+          void this.current().then(position => {
+            if (!layer.isConnected || this.disposed) return;
+            const selected = this.convert(position, 'gcj02');
+            latitude = selected.latitude; longitude = selected.longitude;
+            update(latitude, longitude);
+          }, () => { if (layer.isConnected) layer.querySelector('[role="alert"]')!.textContent = '无法获取当前位置，请在地图上选择'; });
         });
-        layer.querySelector('.fmp-choose-location-ok')!.addEventListener('click', () => {
-          const value = (selector: string) => (layer.querySelector(selector) as HTMLInputElement).value;
-          const latitude = Number(value('.fmp-choose-location-lat'));
-          const longitude = Number(value('.fmp-choose-location-lng'));
-          close();
-          resolve({
-            name: value('.fmp-choose-location-name'),
-            address: value('.fmp-choose-location-address'),
-            latitude,
-            longitude
-          });
+        let settled = false;
+        const unmount = this.trackDialog(layer, reject);
+        const close = () => { if (settled) return false; settled = true; unmount(); return true; };
+        const confirm = () => {
+          const lat = Number.parseFloat(field('latitude').value), lng = Number.parseFloat(field('longitude').value);
+          try { this.coordinates(lat, lng); }
+          catch { layer.querySelector('[role="alert"]')!.textContent = '请输入有效坐标'; return; }
+          const value = { name: field('name').value, address: field('address').value, latitude: lat, longitude: lng };
+          if (close()) resolve(value);
+        };
+        const buttons = layer.querySelectorAll('.fmp-choose-location-actions button');
+        buttons[0].addEventListener('click', () => { if (close()) reject(new Error('cancel')); });
+        buttons[1].addEventListener('click', confirm);
+        layer.querySelector('.fmp-location-center')!.addEventListener('click', () => {
+          field('name').value = '地图中心';
+          layer.querySelector('.fmp-location-center')!.setAttribute('aria-pressed', 'true');
         });
-
-        // 点击地图移动 pin，并同步经纬度
         const map = layer.querySelector('.fmp-choose-location-map') as HTMLElement;
         const pin = layer.querySelector('.fmp-choose-location-pin') as HTMLElement;
         map.addEventListener('click', event => {
           const rect = map.getBoundingClientRect();
-          const x = (event as MouseEvent).clientX - rect.left;
-          const y = (event as MouseEvent).clientY - rect.top;
-          pin.style.left = `${x}px`;
-          pin.style.top = `${y}px`;
-          const lng = position.longitude + (x - rect.width / 2) * 0.0002;
-          const lat = position.latitude - (y - rect.height / 2) * 0.0002;
-          (layer.querySelector('.fmp-choose-location-lng') as HTMLInputElement).value = String(round(lng));
-          (layer.querySelector('.fmp-choose-location-lat') as HTMLInputElement).value = String(round(lat));
+          const x = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+          const y = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
+          pin.style.left = `${x * 100}%`; pin.style.top = `${y * 100}%`;
+          update(Math.min(90, Math.max(-90, latitude + (.5 - y) * .02)), Math.min(180, Math.max(-180, longitude + (x - .5) * .02)));
         });
-
-        overlay.appendChild(layer);
+        this.host.overlay().appendChild(layer);
       });
     });
   }
 
-  private choosePoi(options: any) {
-    return this.call(
-      'choosePoi',
-      options,
-      () =>
-        new Promise((resolve, reject) => {
-          const overlay = this.host.overlay();
-          const layer = document.createElement('div');
-          layer.className = 'fmp-choose-poi';
-          const close = this.trackDialog(layer, reject);
-          const pois = [
-            { name: '科技园', address: '深圳市南山区科技园', latitude: 22.5405, longitude: 113.9344 },
-            { name: '市民中心', address: '深圳市福田区福中路', latitude: 22.5431, longitude: 114.0579 },
-            { name: '深圳湾公园', address: '深圳市南山区滨海大道', latitude: 22.5175, longitude: 113.9473 }
-          ];
-          layer.innerHTML = `
-          <div class="fmp-choose-poi-panel">
-            <div class="fmp-choose-poi-title">选择地点</div>
-            ${pois
-              .map(
-                (poi, index) =>
-                  `<button class="fmp-choose-poi-item" data-index="${index}"><b>${poi.name}</b><span>${poi.address}</span></button>`
-              )
-              .join('')}
-            <button class="fmp-choose-poi-cancel">取消</button>
-          </div>`;
-          layer.querySelectorAll('.fmp-choose-poi-item').forEach(button => {
-            button.addEventListener('click', () => {
-              const poi = pois[Number((button as HTMLElement).dataset.index)];
-              close();
-              resolve({ name: poi.name, address: poi.address, latitude: poi.latitude, longitude: poi.longitude });
-            });
-          });
-          layer.querySelector('.fmp-choose-poi-cancel')!.addEventListener('click', () => {
-            close();
-            reject(new Error('cancel'));
-          });
-          overlay.appendChild(layer);
-        })
-    );
-  }
 }
 
 function round(value: number): number {

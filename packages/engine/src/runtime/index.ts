@@ -125,7 +125,10 @@ body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
 .fmp-refresher { transition: opacity .2s ease; }
 wx-slot, wx-slot-body { display: contents; }
 wx-page [hidden] { display: none !important; }
-.fmp-choose-location, .fmp-choose-poi { position: absolute; inset: 0; z-index: 20; display: flex; align-items: flex-end; background: rgba(0,0,0,.5); }
+.fmp-choose-location, .fmp-choose-poi { position: absolute; inset: 0; z-index: 20; display: flex; align-items: flex-end; background: rgba(0,0,0,.5); pointer-events: auto; }
+.fmp-open-location { position: absolute; inset: 0; z-index: 20; background: #fff; color: #222; padding: 16px; box-sizing: border-box; overflow: auto; pointer-events: auto; }
+.fmp-open-location > button { float: right; padding: 8px 16px; border: 0; border-radius: 4px; cursor: pointer; }
+.fmp-location-center { display: block; width: 100%; padding: 12px; border: 0; background: #f2f2f2; text-align: left; cursor: pointer; }
 .fmp-choose-location-panel, .fmp-choose-poi-panel { width: 100%; max-height: 88%; overflow: auto; background: #fff; border-radius: 12px 12px 0 0; padding: 16px; box-sizing: border-box; }
 .fmp-choose-location-title, .fmp-choose-poi-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
 .fmp-choose-location-map { position: relative; height: 160px; background: linear-gradient(135deg, #dfe8dc, #eef2ea 45%, #dce7f2); border-radius: 8px; overflow: hidden; }

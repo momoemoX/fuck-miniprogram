@@ -8,7 +8,7 @@
 import { showActionSheet } from '../overlay';
 import { BrowserCamera } from './camera';
 import { readImageMetadata } from './image-metadata';
-import { addTempFile, blobFromPath } from './temp-files';
+import { addTempFile, blobFromPath, mediaSource } from './temp-files';
 import type { WxHost } from './types';
 import { absoluteUrl, deliver, invoke, numberOr, uid } from './util';
 import { ownedElements } from '../selectors';
@@ -698,7 +698,7 @@ export class MediaApi {
             this.assertOpen();
             const record = addTempFile(blob, file.name, file.type);
             if (isVideo) {
-              const meta = await videoMeta(record.path, this.pending.signal, true).catch(() => null);
+              const meta = await videoMeta(record.url, this.pending.signal, true).catch(() => null);
               this.assertOpen();
               tempFiles.push({
                 tempFilePath: record.path,
@@ -726,7 +726,7 @@ export class MediaApi {
           if (!files.length) throw new Error('cancel');
           const file = files[0];
           const record = addTempFile(file, file.name, file.type);
-          const meta = await videoMeta(record.path, this.pending.signal, true).catch(() => null);
+          const meta = await videoMeta(record.url, this.pending.signal, true).catch(() => null);
           this.assertOpen();
           return {
             tempFilePath: record.path,
@@ -768,9 +768,8 @@ export class MediaApi {
         this.call('previewImage', options, async opts => {
           const urls: string[] = opts?.urls ?? [];
           if (!urls.length) throw new Error('parameter error: "urls" is required');
-          let index = Math.max(0, urls.indexOf(opts.current));
-          if (index < 0) index = Math.min(numberOr(opts.current, 0), urls.length - 1);
-          this.preview(urls, index);
+          const index = typeof opts.current === 'number' ? Math.floor(opts.current) : Math.max(0, urls.indexOf(opts.current));
+          await this.preview(urls.map(url => ({ url, type: 'image' })), index);
           return {};
         }),
 
@@ -778,15 +777,8 @@ export class MediaApi {
         this.call('previewMedia', options, async opts => {
           const sources = opts?.sources ?? [];
           if (!sources.length) throw new Error('parameter error: "sources" is required');
-          const index = Math.max(0, numberOr(opts.current, 0));
-          const source = sources[index];
-          if (!source) throw new Error('invalid current');
-          if (source.type === 'video') window.open(source.url, '_blank');
-          else
-            this.preview(
-              sources.filter((item: any) => item.type === 'image').map((item: any) => item.url),
-              0
-            );
+          const index = Math.min(sources.length - 1, Math.max(0, Math.floor(numberOr(opts.current, 0))));
+          await this.preview(sources, index);
           return {};
         }),
 
@@ -873,7 +865,7 @@ export class MediaApi {
           const blob = await blobFromPath(opts?.src, this.pending.signal);
           this.assertOpen();
           const record = addTempFile(blob);
-          const meta = await videoMeta(record.path, this.pending.signal);
+          const meta = await videoMeta(record.url, this.pending.signal);
           return {
             orientation: meta.orientation,
             duration: meta.duration,
@@ -1023,44 +1015,77 @@ export class MediaApi {
     };
   }
 
-  private preview(urls: string[], startIndex: number) {
-    let index = Math.min(Math.max(startIndex, 0), urls.length - 1);
+  private async preview(sources: { url: string; type?: string; poster?: string }[], startIndex: number) {
+    const resolved: { url: string; release(): void }[] = [];
+    try {
+      for (const source of sources) {
+        resolved.push(await mediaSource(source.url, this.pending.signal));
+      }
+      this.assertOpen();
+    } catch (error) {
+      resolved.forEach(source => source.release());
+      throw error;
+    }
+    let index = Math.min(Math.max(startIndex, 0), sources.length - 1);
     const layer = document.createElement('div');
     layer.className = 'fmp-preview';
-    const image = document.createElement('img');
-    image.className = 'fmp-preview-image';
+    layer.setAttribute('role', 'dialog');
+    layer.setAttribute('aria-label', '媒体预览');
+    layer.setAttribute('aria-modal', 'true');
+    const content = document.createElement('div');
+    content.className = 'fmp-preview-content';
     const position = document.createElement('div');
     position.className = 'fmp-preview-position';
+    const clear = () => {
+      const video = content.querySelector('video');
+      if (video) { video.pause(); video.removeAttribute('src'); video.load(); }
+      content.replaceChildren();
+    };
+    const close = () => {
+      clear();
+      layer.remove();
+      resolved.forEach(source => source.release());
+      this.contextCleanups.delete(close);
+    };
     const paint = () => {
-      image.src = urls[index];
-      position.textContent = urls.length > 1 ? `${index + 1}/${urls.length}` : '';
+      clear();
+      const source = sources[index];
+      if (source.type === 'video') {
+        const video = document.createElement('video');
+        video.controls = true;
+        video.autoplay = true;
+        video.playsInline = true;
+        video.src = resolved[index].url;
+        if (source.poster) video.poster = source.poster;
+        content.appendChild(video);
+      } else {
+        const image = document.createElement('img');
+        image.src = resolved[index].url;
+        image.alt = '预览图片';
+        image.addEventListener('click', close);
+        content.appendChild(image);
+      }
+      position.textContent = sources.length > 1 ? `${index + 1}/${sources.length}` : '';
     };
-    const step = (delta: number) => {
-      index = (index + delta + urls.length) % urls.length;
-      paint();
+    const button = (text: string, label: string, action: () => void) => {
+      const el = document.createElement('button');
+      el.type = 'button'; el.textContent = text; el.setAttribute('aria-label', label);
+      el.addEventListener('click', event => { event.stopPropagation(); action(); });
+      return el;
     };
-    if (urls.length > 1) {
-      const prev = document.createElement('button');
-      prev.className = 'fmp-preview-prev';
-      prev.textContent = '‹';
-      prev.addEventListener('click', event => {
-        event.stopPropagation();
-        step(-1);
-      });
-      const next = document.createElement('button');
+    if (sources.length > 1) {
+      const previous = button('‹', '上一张', () => { index = (index + sources.length - 1) % sources.length; paint(); });
+      previous.className = 'fmp-preview-prev';
+      const next = button('›', '下一张', () => { index = (index + 1) % sources.length; paint(); });
       next.className = 'fmp-preview-next';
-      next.textContent = '›';
-      next.addEventListener('click', event => {
-        event.stopPropagation();
-        step(1);
-      });
-      layer.append(prev, next);
+      layer.append(previous, next);
     }
+    const dismiss = button('×', '关闭', close);
+    dismiss.className = 'fmp-preview-close';
+    layer.append(content, position, dismiss);
+    layer.addEventListener('click', event => { if (event.target === layer || event.target === content) close(); });
+    this.contextCleanups.add(close);
     paint();
-    layer.append(image, position);
-    layer.addEventListener('click', event => {
-      if (event.target === image) layer.remove();
-    });
     this.host.overlay().appendChild(layer);
   }
 

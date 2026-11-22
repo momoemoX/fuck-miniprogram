@@ -12,6 +12,7 @@ import { WxEditor, WxEditorPortal, EDITOR_CSS } from './editor';
 import { WxSelection, SELECTION_CSS } from './selection';
 import { eventResult } from './events';
 import { booleanProperty, boundAttribute } from './attributes';
+import { getTempFile } from './api/temp-files';
 
 const elementStates = {
   audioReady: new WeakSet<Element>(),
@@ -86,7 +87,7 @@ class WxImage extends HTMLElement {
 
   private apply() {
     const src = this.getAttribute('src') ?? '';
-    if (src && this.img.getAttribute('src') !== src) this.img.src = src;
+    if (src && this.img.getAttribute('src') !== src) this.img.src = getTempFile(src)?.url ?? src;
     const mode = this.getAttribute('mode') ?? 'scaleToFill';
     this.img.loading = this.hasAttribute('lazy-load') ? 'lazy' : 'eager';
     this.img.style.objectFit = IMAGE_FIT[mode] ?? 'fill';
@@ -387,6 +388,7 @@ class WxPicker extends HTMLElement {
         title: headerText,
         columns: columns.map((column, index) => ({ ...column, defaultIndex: current[index] ?? 0 })),
         onColumnChange: (columnIndex, valueIndex) => {
+          const previous = this.getAttribute('value');
           this.emit('columnchange', { column: columnIndex, value: valueIndex });
           // 父级 setData 更新 range 后再刷新后续列
           setTimeout(() => {
@@ -394,7 +396,7 @@ class WxPicker extends HTMLElement {
             const selected = jsonAttr(this, 'value', []) as number[];
             session.update(
               next.map(column => ({ values: (column ?? []).map(label) })),
-              selected
+              previous === this.getAttribute('value') ? undefined : selected
             );
           }, 30);
         },
@@ -417,7 +419,7 @@ class WxPicker extends HTMLElement {
   private openTime(overlay: HTMLElement, title: string) {
     const current = (this.getAttribute('value') || '00:00').split(':').map(Number);
     const parse = (text: string | null, fallback: number) => {
-      const [hour, minute] = (text ?? '').split(':').map(Number);
+      const [hour, minute] = text ? text.split(':').map(Number) : [fallback, 0];
       return { hour: Number.isFinite(hour) ? hour : fallback, minute: Number.isFinite(minute) ? minute : 0 };
     };
     const start = parse(this.getAttribute('start'), 0);
@@ -429,8 +431,9 @@ class WxPicker extends HTMLElement {
     showPicker(overlay, {
       title,
       columns: [
-        { values: hours, defaultIndex: Math.max(0, hours.indexOf(pad2(current[0] || 0))) },
+        { values: hours, label: '时', numeric: true, defaultIndex: Math.max(0, hours.indexOf(pad2(current[0] || 0))) },
         {
+          label: '分', numeric: true,
           values: Array.from({ length: 60 }, (_, minute) => pad2(minute)),
           defaultIndex: Number.isFinite(current[1]) ? current[1] : 0
         }
@@ -453,38 +456,41 @@ class WxPicker extends HTMLElement {
     for (let y = start[0]; y <= end[0]; y++) years.push(String(y));
     const months = Array.from({ length: 12 }, (_, index) => pad2(index + 1));
     const daysInMonth = (y: number, m: number) => new Date(y, m, 0).getDate();
-    const days = Array.from({ length: daysInMonth(year, month) }, (_, index) => pad2(index + 1));
+    let days = Array.from({ length: daysInMonth(year, month) }, (_, index) => pad2(index + 1));
 
     const columns =
       fields === 'year'
-        ? [{ values: years, defaultIndex: Math.max(0, years.indexOf(String(year))) }]
+        ? [{ values: years, label: '年', numeric: true, defaultIndex: Math.max(0, years.indexOf(String(year))) }]
         : fields === 'month'
           ? [
-              { values: years, defaultIndex: Math.max(0, years.indexOf(String(year))) },
-              { values: months, defaultIndex: month - 1 }
+              { values: years, label: '年', numeric: true, defaultIndex: Math.max(0, years.indexOf(String(year))) },
+              { values: months, label: '月', numeric: true, defaultIndex: month - 1 }
             ]
           : [
-              { values: years, defaultIndex: Math.max(0, years.indexOf(String(year))) },
-              { values: months, defaultIndex: month - 1 },
-              { values: days, defaultIndex: day - 1 }
+              { values: years, label: '年', numeric: true, defaultIndex: Math.max(0, years.indexOf(String(year))) },
+              { values: months, label: '月', numeric: true, defaultIndex: month - 1 },
+              { values: days, label: '日', numeric: true, defaultIndex: day - 1 }
             ];
 
+    let selectedYear = year, selectedMonth = month;
     const session = showPicker(overlay, {
       title,
       columns,
       onColumnChange: (columnIndex, valueIndex) => {
         if (fields !== 'day' || columnIndex > 1) return;
-        const nextYear = Number(years[valueIndex] ?? year);
-        const nextMonth = columnIndex === 1 ? valueIndex + 1 : month;
+        if (columnIndex === 0) selectedYear = Number(years[valueIndex]);
+        if (columnIndex === 1) selectedMonth = valueIndex + 1;
+        const nextYear = selectedYear, nextMonth = selectedMonth;
         const nextDays = Array.from({ length: daysInMonth(nextYear, nextMonth) }, (_, index) => pad2(index + 1));
         setTimeout(() => {
+          days = nextDays;
           session.update(
             [
-              { values: years, defaultIndex: Math.max(0, years.indexOf(String(nextYear))) },
-              { values: months, defaultIndex: nextMonth - 1 },
-              { values: nextDays, defaultIndex: 0 }
+              { values: years, label: '年', numeric: true, defaultIndex: Math.max(0, years.indexOf(String(nextYear))) },
+              { values: months, label: '月', numeric: true, defaultIndex: nextMonth - 1 },
+              { values: nextDays, label: '日', numeric: true, defaultIndex: 0 }
             ],
-            [Math.max(0, years.indexOf(String(nextYear))), nextMonth - 1, 0]
+            [Math.max(0, years.indexOf(String(nextYear))), nextMonth - 1, Math.min(session.selectedIndexes()[2] ?? 0, nextDays.length - 1)]
           );
         }, 30);
       },
@@ -545,25 +551,26 @@ class WxPicker extends HTMLElement {
       title,
       columns,
       onColumnChange: (columnIndex, valueIndex) => {
-        const nextProvince = columnIndex === 0 ? provinces[valueIndex] : provinces[provinceIndex];
+        if (columnIndex >= 2) return;
+        const selection = session.selectedIndexes();
+        const selectedProvince = columnIndex === 0 ? valueIndex : selection[0];
+        const nextProvince = provinces[selectedProvince];
         const nextCities = nextProvince?.children ?? [];
         const nextCity = columnIndex === 1 ? nextCities[valueIndex] : nextCities[0];
         const nextDistricts = nextCity?.children ?? [];
-        setTimeout(() => {
-          session.update(
+        session.update(
             level === 'city'
               ? [
-                  { values: names(provinces), defaultIndex: columnIndex === 0 ? valueIndex : provinceIndex },
+                  { values: names(provinces), defaultIndex: selectedProvince },
                   { values: names(nextCities), defaultIndex: columnIndex === 1 ? valueIndex : 0 }
                 ]
               : [
-                  { values: names(provinces), defaultIndex: columnIndex === 0 ? valueIndex : provinceIndex },
+                  { values: names(provinces), defaultIndex: selectedProvince },
                   { values: names(nextCities), defaultIndex: columnIndex === 1 ? valueIndex : 0 },
                   { values: names(nextDistricts), defaultIndex: 0 }
                 ],
-            [columnIndex === 0 ? valueIndex : provinceIndex, columnIndex === 1 ? valueIndex : 0, 0]
+            [selectedProvince, columnIndex === 1 ? valueIndex : 0, 0]
           );
-        }, 30);
       },
       onConfirm: indexes => {
         const province = provinces[indexes[0]];
@@ -639,8 +646,8 @@ class WxPickerView extends HTMLElement {
   }
 }
 
-/** 音频组件：默认播放器外观（封面 + 播放键 + 名称/作者/时长）对齐官方 .wx-audio-default */
-class WxAudio extends HTMLElement {
+
+class FmpAudio extends HTMLElement {
   static observedAttributes = ['src', 'name', 'author', 'poster', 'loop', 'controls'];
 
   private audio = document.createElement('audio');
@@ -775,7 +782,7 @@ class WxAudio extends HTMLElement {
   setSource(source: string) {
     if (typeof source !== 'string' || !source || this.audio.getAttribute('src') === source) return;
     this.pendingSeek = null;
-    this.audio.src = source;
+    this.audio.src = getTempFile(source)?.url ?? source;
     this.syncTime();
   }
 
@@ -1034,7 +1041,7 @@ class WxVideo extends HTMLElement {
     if (!src) return;
     const initialTime = Number(this.getAttribute('initial-time'));
     this.pendingSeek = Number.isFinite(initialTime) ? Math.max(0, initialTime) : 0;
-    this.video.src = src;
+    this.video.src = getTempFile(src)?.url ?? src;
     this.loaded = true;
   }
 
@@ -1513,7 +1520,7 @@ const ELEMENTS: Record<string, CustomElementConstructor> = {
   'wx-web-view': WxWebView,
   'wx-map': WxMap,
   'wx-camera': WxCamera,
-  'wx-audio': WxAudio,
+  'wx-audio': FmpAudio,
   'wx-editor': WxEditor,
   'wx-editor-portal': WxEditorPortal,
   'wx-selection': WxSelection,
