@@ -13,6 +13,17 @@ beforeEach(async () => {
 afterEach(async () => { await page?.close(); });
 afterAll(async () => { await browser?.close(); });
 describe('反馈浮层与选择器交互', () => {
+  it.each(['time', 'date'])('%s 选择器只展示操作栏和滚轮', async mode => {
+    await page.evaluate(async mode => {
+      const p=(window as any).getCurrentPages()[0];
+      await new Promise<void>(r=>p.setData({mode,value:mode==='date'?'2026-01-01':'10:00'},r));
+    }, mode);
+    await page.locator('#picker').click();
+    const dialog = page.getByRole('dialog');
+    expect(await dialog.locator('input, textarea, [contenteditable="true"]').count()).toBe(0);
+    expect(await dialog.getByRole('listbox').count()).toBe(mode === 'date' ? 3 : 2);
+    expect(await dialog.getByRole('button').allTextContents()).toEqual(['取消','确定']);
+  });
   it('用户在窄视口仍能点击操作菜单的取消并卸载菜单', async () => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.evaluate(() => (window as any).wx.showActionSheet({ itemList: ['第一项', '第二项'], fail: () => {} }));
@@ -29,12 +40,12 @@ describe('反馈浮层与选择器交互', () => {
       await page.getByRole('option', { name: 'Beta', exact: true }).click();
       if (mode === 'multiSelector') await page.getByRole('option', { name: 'Two', exact: true }).click();
     } else if (mode === 'time') {
-      await page.getByRole('spinbutton', { name: '时', exact: true }).fill('11');
-      await page.getByRole('spinbutton', { name: '分', exact: true }).fill('30');
+      await page.getByRole('option', { name: '11时', exact: true }).click();
+      await page.getByRole('option', { name: '30分', exact: true }).click();
     } else if (mode === 'date') {
-      await page.getByRole('spinbutton', { name: '年', exact: true }).fill('2026');
-      await page.getByRole('spinbutton', { name: '月', exact: true }).fill('2');
-      await page.getByRole('spinbutton', { name: '日', exact: true }).fill('3');
+      await page.getByRole('option', { name: '2026年', exact: true }).click();
+      await page.getByRole('option', { name: '02月', exact: true }).click();
+      await page.getByRole('option', { name: '03日', exact: true }).click();
     } else {
       await page.getByRole('option', { name: '广东省', exact: true }).click();
       await page.getByRole('option', { name: '广州市', exact: true }).click();
