@@ -1,0 +1,13 @@
+.container {
+  padding: 32rpx;
+}
+.title {
+  font-size: 36rpx;
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+.count {
+  font-size: 28rpx;
+  color: #333;
+  margin-bottom: 24rpx;
+}

@@ -1,0 +1,33 @@
+{
+  "name": "@fuck-miniprogram/engine",
+  "version": "0.1.0",
+  "description": "Independent pure-Web Mini Program base library and WXML/WXSS/WXS compiler.",
+  "type": "module",
+  "main": "./dist/runtime.js",
+  "exports": {
+    "./runtime": "./dist/runtime.js",
+    "./compiler": "./dist/build.js"
+  },
+  "files": [
+    "dist",
+    "licenses",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "scripts": {
+    "build": "pnpm typecheck && tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/less": "^3.0.8",
+    "tsup": "^8.0.1"
+  },
+  "dependencies": {
+    "@breezystack/lamejs": "1.2.7",
+    "brotli": "2.1.0",
+    "fflate": "0.8.3",
+    "less": "^4.9.1",
+    "quill": "2.0.3",
+    "typescript": "^5.3.2"
+  },
+  "license": "MIT"
+}

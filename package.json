@@ -1,0 +1,24 @@
+{
+  "name": "fuck-miniprogram",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pure-Web Mini Program runtime, compiler, and CLI.",
+  "type": "module",
+  "packageManager": "pnpm@10.33.2",
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "dev:starter": "pnpm --filter @fuck-miniprogram/cli exec node dist/index.js dev examples/starter"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "playwright": "^1.65.1",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.2",
+    "vitest": "^3.2.4"
+  },
+  "license": "MIT"
+}

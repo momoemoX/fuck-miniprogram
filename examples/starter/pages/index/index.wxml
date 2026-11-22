@@ -1,0 +1,5 @@
+<view class="container">
+  <view class="title">{{title}}</view>
+  <view class="count">Count: {{count}}</view>
+  <button type="primary" bindtap="increment">Increment</button>
+</view>
