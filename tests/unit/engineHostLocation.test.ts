@@ -18,6 +18,12 @@ async function open(method: string) {
   await page.getByRole('dialog').waitFor();
 }
 describe('位置宿主交互', () => {
+  it.each(['chooseLocation', 'choosePoi'])('%s 不传坐标时先显示地图供用户选择', async method => {
+    await page.evaluate(method => (window as any).wx[method]({ fail() {} }), method);
+    await expect.poll(() => page.getByRole('dialog').count(), { timeout: 1500 }).toBe(1);
+    await page.getByRole('button', { name: '取消', exact: true }).click();
+    expect(await page.getByRole('dialog').count()).toBe(0);
+  });
   it.each(['chooseLocation', 'choosePoi'])('用户取消 %s 后失败回调只交付一次并卸载浮层', async method => {
     await open(method);
     await page.getByRole('button', { name: '取消', exact: true }).click();
