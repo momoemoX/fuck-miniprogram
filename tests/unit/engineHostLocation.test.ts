@@ -34,7 +34,8 @@ describe('位置宿主交互', () => {
   it.each(['chooseLocation', 'choosePoi'])('用户在 %s 选择可见坐标后返回对应地点', async method => {
     await open(method);
     await page.getByRole('button', { name: '地图中心', exact: true }).click();
-    if (method === 'chooseLocation') await page.getByRole('button', { name: '确定', exact: true }).click();
+    expect(await page.getByRole('dialog').count()).toBe(1);
+    await page.getByRole('button', { name: '确定', exact: true }).click();
     await expect.poll(() => page.evaluate(() => (window as any).trace)).toEqual(['success', 'complete']);
     const result = await page.evaluate(() => (window as any).result);
     expect(result).toMatchObject({ name: '地图中心', latitude: 31.2, longitude: 121.4 });
