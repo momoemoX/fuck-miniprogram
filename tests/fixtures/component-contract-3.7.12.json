@@ -1,0 +1,2818 @@
+{
+  "audio": {
+    "attributes": [
+      {
+        "name": "src",
+        "property": "src",
+        "type": "string"
+      },
+      {
+        "name": "loop",
+        "property": "loop",
+        "type": "boolean"
+      },
+      {
+        "name": "controls",
+        "property": "controls",
+        "type": "boolean"
+      },
+      {
+        "name": "poster",
+        "property": "poster",
+        "type": "string"
+      },
+      {
+        "name": "name",
+        "property": "name",
+        "type": "string"
+      },
+      {
+        "name": "author",
+        "property": "author",
+        "type": "string"
+      }
+    ],
+    "defaults": {
+      "src": "",
+      "loop": false,
+      "controls": false,
+      "poster": "",
+      "name": "未知歌曲",
+      "author": "未知作者"
+    },
+    "values": {
+      "src": "suite",
+      "loop": true,
+      "controls": true,
+      "poster": "suite",
+      "name": "suite",
+      "author": "suite"
+    },
+    "bound": {
+      "src": "suite",
+      "loop": true,
+      "controls": true,
+      "poster": "suite",
+      "name": "suite",
+      "author": "suite"
+    }
+  },
+  "button": {
+    "attributes": [
+      {
+        "name": "size",
+        "property": "size",
+        "type": "string",
+        "values": [
+          "default",
+          "mini"
+        ]
+      },
+      {
+        "name": "type",
+        "property": "type",
+        "type": "string",
+        "values": [
+          "primary",
+          "default",
+          "warn"
+        ]
+      },
+      {
+        "name": "plain",
+        "property": "plain",
+        "type": "boolean"
+      },
+      {
+        "name": "disabled",
+        "property": "disabled",
+        "type": "boolean"
+      },
+      {
+        "name": "loading",
+        "property": "loading",
+        "type": "boolean"
+      },
+      {
+        "name": "form-type",
+        "property": "formType",
+        "type": "string",
+        "values": [
+          "submit",
+          "reset",
+          "submitToGroup"
+        ]
+      },
+      {
+        "name": "open-type",
+        "property": "openType",
+        "type": "string",
+        "values": [
+          "contact",
+          "liveActivity",
+          "share",
+          "getPhoneNumber",
+          "getRealtimePhoneNumber",
+          "getUserInfo",
+          "launchApp",
+          "openSetting",
+          "feedback",
+          "chooseAvatar",
+          "agreePrivacyAuthorization"
+        ]
+      },
+      {
+        "name": "hover-class",
+        "property": "hoverClass",
+        "type": "string"
+      },
+      {
+        "name": "hover-stop-propagation",
+        "property": "hoverStopPropagation",
+        "type": "boolean"
+      },
+      {
+        "name": "hover-start-time",
+        "property": "hoverStartTime",
+        "type": "number"
+      },
+      {
+        "name": "hover-stay-time",
+        "property": "hoverStayTime",
+        "type": "number"
+      },
+      {
+        "name": "lang",
+        "property": "lang",
+        "type": "string",
+        "values": [
+          "en",
+          "zh_CN",
+          "zh_TW"
+        ]
+      },
+      {
+        "name": "session-from",
+        "property": "sessionFrom",
+        "type": "string"
+      },
+      {
+        "name": "send-message-title",
+        "property": "sendMessageTitle",
+        "type": "string"
+      },
+      {
+        "name": "send-message-path",
+        "property": "sendMessagePath",
+        "type": "string"
+      },
+      {
+        "name": "send-message-img",
+        "property": "sendMessageImg",
+        "type": "string"
+      },
+      {
+        "name": "app-parameter",
+        "property": "appParameter",
+        "type": "string"
+      },
+      {
+        "name": "show-message-card",
+        "property": "showMessageCard",
+        "type": "boolean"
+      },
+      {
+        "name": "phone-number-no-quota-toast",
+        "property": "phoneNumberNoQuotaToast",
+        "type": "boolean"
+      },
+      {
+        "name": "need-show-entrance",
+        "property": "needShowEntrance",
+        "type": "boolean"
+      },
+      {
+        "name": "entrance-path",
+        "property": "entrancePath",
+        "type": "string"
+      }
+    ],
+    "defaults": {
+      "size": "default",
+      "type": "default",
+      "plain": false,
+      "disabled": false,
+      "loading": false,
+      "formType": "",
+      "openType": "",
+      "hoverClass": "",
+      "hoverStopPropagation": false,
+      "hoverStartTime": 20,
+      "hoverStayTime": 70,
+      "lang": "en",
+      "sessionFrom": "wx\u0061pp",
+      "sendMessageTitle": "",
+      "sendMessagePath": "",
+      "sendMessageImg": "",
+      "appParameter": "",
+      "showMessageCard": false,
+      "phoneNumberNoQuotaToast": true,
+      "needShowEntrance": true,
+      "entrancePath": ""
+    },
+    "values": {
+      "size": "mini",
+      "type": "default",
+      "plain": true,
+      "disabled": true,
+      "loading": true,
+      "formType": "reset",
+      "openType": "liveActivity",
+      "hoverClass": "suite",
+      "hoverStopPropagation": true,
+      "hoverStartTime": 7,
+      "hoverStayTime": 7,
+      "lang": "zh_CN",
+      "sessionFrom": "suite",
+      "sendMessageTitle": "suite",
+      "sendMessagePath": "suite",
+      "sendMessageImg": "suite",
+      "appParameter": "suite",
+      "showMessageCard": true,
+      "phoneNumberNoQuotaToast": true,
+      "needShowEntrance": true,
+      "entrancePath": "suite"
+    },
+    "bound": {
+      "size": "mini",
+      "type": "default",
+      "plain": true,
+      "disabled": true,
+      "loading": true,
+      "formType": "reset",
+      "openType": "liveActivity",
+      "hoverClass": "suite",
+      "hoverStopPropagation": true,
+      "hoverStartTime": 7,
+      "hoverStayTime": 7,
+      "lang": "zh_CN",
+      "sessionFrom": "suite",
+      "sendMessageTitle": "suite",
+      "sendMessagePath": "suite",
+      "sendMessageImg": "suite",
+      "appParameter": "suite",
+      "showMessageCard": true,
+      "phoneNumberNoQuotaToast": true,
+      "needShowEntrance": true,
+      "entrancePath": "suite"
+    }
+  },
+  "canvas": {
+    "attributes": [
+      {
+        "name": "type",
+        "property": "type",
+        "type": "string"
+      },
+      {
+        "name": "canvas-id",
+        "property": "canvasId",
+        "type": "string"
+      },
+      {
+        "name": "disable-scroll",
+        "property": "disableScroll",
+        "type": "boolean"
+      }
+    ],
+    "defaults": {
+      "type": "",
+      "canvasId": "",
+      "disableScroll": false
+    },
+    "values": {
+      "type": "suite",
+      "canvasId": "suite",
+      "disableScroll": true
+    },
+    "bound": {
+      "type": "suite",
+      "canvasId": "suite",
+      "disableScroll": true
+    }
+  },
+  "checkbox-group": {
+    "attributes": [],
+    "defaults": {},
+    "values": {},
+    "bound": {}
+  },
+  "checkbox": {
+    "attributes": [
+      {
+        "name": "value",
+        "property": "value",
+        "type": "string"
+      },
+      {
+        "name": "disabled",
+        "property": "disabled",
+        "type": "boolean"
+      },
+      {
+        "name": "checked",
+        "property": "checked",
+        "type": "boolean"
+      },
+      {
+        "name": "color",
+        "property": "color",
+        "type": "string"
+      }
+    ],
+    "defaults": {
+      "value": "",
+      "disabled": false,
+      "checked": false,
+      "color": ""
+    },
+    "values": {
+      "value": "suite",
+      "disabled": true,
+      "checked": true,
+      "color": "suite"
+    },
+    "bound": {
+      "value": "suite",
+      "disabled": true,
+      "checked": true,
+      "color": "suite"
+    }
+  },
+  "cover-image": {
+    "attributes": [
+      {
+        "name": "src",
+        "property": "src",
+        "type": "string"
+      },
+      {
+        "name": "referrer-policy",
+        "property": "referrerPolicy",
+        "type": "string",
+        "values": [
+          "origin",
+          "no-referrer"
+        ]
+      }
+    ],
+    "defaults": {
+      "src": "",
+      "referrerPolicy": "no-referrer"
+    },
+    "values": {
+      "src": "suite",
+      "referrerPolicy": "no-referrer"
+    },
+    "bound": {
+      "src": "suite",
+      "referrerPolicy": "no-referrer"
+    }
+  },
+  "cover-view": {
+    "attributes": [
+      {
+        "name": "scroll-top",
+        "property": "scrollTop",
+        "type": "number"
+      }
+    ],
+    "defaults": {
+      "scrollTop": -1
+    },
+    "values": {
+      "scrollTop": 7
+    },
+    "bound": {
+      "scrollTop": "7"
+    }
+  },
+  "editor": {
+    "attributes": [
+      {
+        "name": "read-only",
+        "property": "readOnly",
+        "type": "boolean"
+      },
+      {
+        "name": "placeholder",
+        "property": "placeholder",
+        "type": "string"
+      },
+      {
+        "name": "show-img-size",
+        "property": "showImgSize",
+        "type": "boolean"
+      },
+      {
+        "name": "show-img-toolbar",
+        "property": "showImgToolbar",
+        "type": "boolean"
+      },
+      {
+        "name": "show-img-resize",
+        "property": "showImgResize",
+        "type": "boolean"
+      },
+      {
+        "name": "enable-formats",
+        "property": "enableFormats",
+        "type": "other"
+      },
+      {
+        "name": "enterkeyhint",
+        "property": "enterkeyhint",
+        "type": "string"
+      },
+      {
+        "name": "confirm-hold",
+        "property": "confirmHold",
+        "type": "boolean"
+      }
+    ],
+    "defaults": {
+      "readOnly": false,
+      "placeholder": "",
+      "showImgSize": false,
+      "showImgToolbar": false,
+      "showImgResize": false,
+      "enableFormats": [
+        "bold",
+        "italic",
+        "underline"
+      ],
+      "enterkeyhint": "enter",
+      "confirmHold": true
+    },
+    "values": {
+      "readOnly": true,
+      "placeholder": "suite",
+      "showImgSize": true,
+      "showImgToolbar": true,
+      "showImgResize": true,
+      "enterkeyhint": "suite",
+      "confirmHold": true
+    },
+    "bound": {
+      "readOnly": true,
+      "placeholder": "suite",
+      "showImgSize": true,
+      "showImgToolbar": true,
+      "showImgResize": true,
+      "enterkeyhint": "suite",
+      "confirmHold": true
+    }
+  },
+  "form": {
+    "attributes": [
+      {
+        "name": "report-submit",
+        "property": "reportSubmit",
+        "type": "boolean"
+      },
+      {
+        "name": "report-submit-timeout",
+        "property": "reportSubmitTimeout",
+        "type": "number"
+      }
+    ],
+    "defaults": {
+      "reportSubmit": false,
+      "reportSubmitTimeout": 0
+    },
+    "values": {
+      "reportSubmit": true,
+      "reportSubmitTimeout": 7
+    },
+    "bound": {
+      "reportSubmit": true,
+      "reportSubmitTimeout": 7
+    }
+  },
+  "icon": {
+    "attributes": [
+      {
+        "name": "type",
+        "property": "type",
+        "type": "string"
+      },
+      {
+        "name": "size",
+        "property": "size",
+        "type": "number"
+      },
+      {
+        "name": "color",
+        "property": "color",
+        "type": "string"
+      }
+    ],
+    "defaults": {
+      "type": "",
+      "size": "23px",
+      "color": ""
+    },
+    "values": {
+      "type": "suite",
+      "size": 7,
+      "color": "suite"
+    },
+    "bound": {
+      "type": "suite",
+      "size": "7",
+      "color": "suite"
+    }
+  },
+  "image": {
+    "attributes": [
+      {
+        "name": "src",
+        "property": "src",
+        "type": "string"
+      },
+      {
+        "name": "mode",
+        "property": "mode",
+        "type": "string",
+        "values": [
+          "scaleToFill",
+          "aspectFit",
+          "aspectFill",
+          "widthFix",
+          "heightFix",
+          "top",
+          "bottom",
+          "center",
+          "left",
+          "right",
+          "top left",
+          "top right",
+          "bottom left",
+          "bottom right"
+        ]
+      },
+      {
+        "name": "show-menu-by-longpress",
+        "property": "showMenuByLongpress",
+        "type": "boolean"
+      }
+    ],
+    "defaults": {
+      "src": "",
+      "mode": "",
+      "showMenuByLongpress": false
+    },
+    "values": {
+      "src": "suite",
+      "mode": "aspectFit",
+      "showMenuByLongpress": true
+    },
+    "bound": {
+      "src": "suite",
+      "mode": "aspectFit",
+      "showMenuByLongpress": true
+    }
+  },
+  "input": {
+    "attributes": [
+      {
+        "name": "value",
+        "property": "value",
+        "type": "string"
+      },
+      {
+        "name": "type",
+        "property": "type",
+        "type": "string",
+        "values": [
+          "text",
+          "number",
+          "idcard",
+          "digit",
+          "safe-password",
+          "nickname"
+        ]
+      },
+      {
+        "name": "password",
+        "property": "password",
+        "type": "boolean"
+      },
+      {
+        "name": "placeholder",
+        "property": "placeholder",
+        "type": "string"
+      },
+      {
+        "name": "placeholder-style",
+        "property": "placeholderStyle",
+        "type": "string"
+      },
+      {
+        "name": "disabled",
+        "property": "disabled",
+        "type": "boolean"
+      },
+      {
+        "name": "maxlength",
+        "property": "maxlength",
+        "type": "number"
+      },
+      {
+        "name": "cursor-spacing",
+        "property": "cursorSpacing",
+        "type": "number"
+      },
+      {
+        "name": "auto-focus",
+        "property": "autoFocus",
+        "type": "boolean"
+      },
+      {
+        "name": "focus",
+        "property": "focus",
+        "type": "boolean"
+      },
+      {
+        "name": "confirm-type",
+        "property": "confirmType",
+        "type": "string",
+        "values": [
+          "send",
+          "search",
+          "next",
+          "go",
+          "done"
+        ]
+      },
+      {
+        "name": "always-embed",
+        "property": "alwaysEmbed",
+        "type": "boolean"
+      },
+      {
+        "name": "confirm-hold",
+        "property": "confirmHold",
+        "type": "boolean"
+      },
+      {
+        "name": "cursor",
+        "property": "cursor",
+        "type": "number"
+      },
+      {
+        "name": "cursor-color",
+        "property": "cursorColor",
+        "type": "string"
+      },
+      {
+        "name": "selection-start",
+        "property": "selectionStart",
+        "type": "number"
+      },
+      {
+        "name": "selection-end",
+        "property": "selectionEnd",
+        "type": "number"
+      },
+      {
+        "name": "adjust-position",
+        "property": "adjustPosition",
+        "type": "boolean"
+      },
+      {
+        "name": "hold-keyboard",
+        "property": "holdKeyboard",
+        "type": "boolean"
+      },
+      {
+        "name": "safe-password-cert-path",
+        "property": "safePasswordCertPath",
+        "type": "string"
+      },
+      {
+        "name": "safe-password-length",
+        "property": "safePasswordLength",
+        "type": "number"
+      },
+      {
+        "name": "safe-password-time-stamp",
+        "property": "safePasswordTimeStamp",
+        "type": "number"
+      },
+      {
+        "name": "safe-password-nonce",
+        "property": "safePasswordNonce",
+        "type": "string"
+      },
+      {
+        "name": "safe-password-salt",
+        "property": "safePasswordSalt",
+        "type": "string"
+      },
+      {
+        "name": "safe-password-custom-hash",
+        "property": "safePasswordCustomHash",
+        "type": "string"
+      }
+    ],
+    "defaults": {
+      "value": "",
+      "type": "text",
+      "password": false,
+      "placeholder": "",
+      "placeholderStyle": "",
+      "disabled": false,
+      "maxlength": 140,
+      "cursorSpacing": null,
+      "autoFocus": false,
+      "focus": 0,
+      "confirmType": null,
+      "alwaysEmbed": null,
+      "confirmHold": false,
+      "cursor": -1,
+      "cursorColor": null,
+      "selectionStart": -1,
+      "selectionEnd": -1,
+      "adjustPosition": null,
+      "holdKeyboard": null,
+      "safePasswordCertPath": null,
+      "safePasswordLength": null,
+      "safePasswordTimeStamp": null,
+      "safePasswordNonce": null,
+      "safePasswordSalt": null,
+      "safePasswordCustomHash": ""
+    },
+    "values": {
+      "value": "suite",
+      "type": "number",
+      "password": true,
+      "placeholder": "suite",
+      "placeholderStyle": "suite",
+      "disabled": true,
+      "maxlength": 7,
+      "cursorSpacing": 7,
+      "confirmType": "search",
+      "confirmHold": true,
+      "cursor": 7,
+      "cursorColor": "suite",
+      "selectionStart": 7,
+      "selectionEnd": 7,
+      "adjustPosition": true,
+      "holdKeyboard": true,
+      "safePasswordCertPath": "suite",
+      "safePasswordLength": 7,
+      "safePasswordTimeStamp": 7,
+      "safePasswordNonce": "suite",
+      "safePasswordSalt": "suite",
+      "safePasswordCustomHash": "suite"
+    },
+    "bound": {
+      "value": "suite",
+      "type": "number",
+      "password": true,
+      "placeholder": "suite",
+      "placeholderStyle": "suite",
+      "disabled": true,
+      "maxlength": 7,
+      "cursorSpacing": null,
+      "confirmType": null,
+      "confirmHold": true,
+      "cursor": 7,
+      "cursorColor": null,
+      "selectionStart": 7,
+      "selectionEnd": 7,
+      "adjustPosition": null,
+      "holdKeyboard": null,
+      "safePasswordCertPath": null,
+      "safePasswordLength": null,
+      "safePasswordTimeStamp": null,
+      "safePasswordNonce": null,
+      "safePasswordSalt": null,
+      "safePasswordCustomHash": "suite"
+    }
+  },
+  "label": {
+    "attributes": [
+      {
+        "name": "for",
+        "property": "for",
+        "type": "string"
+      }
+    ],
+    "defaults": {
+      "for": ""
+    },
+    "values": {
+      "for": "suite"
+    },
+    "bound": {
+      "for": "suite"
+    }
+  },
+  "map": {
+    "attributes": [
+      {
+        "name": "longitude",
+        "property": "longitude",
+        "type": "number"
+      },
+      {
+        "name": "latitude",
+        "property": "latitude",
+        "type": "number"
+      },
+      {
+        "name": "scale",
+        "property": "scale",
+        "type": "number"
+      },
+      {
+        "name": "min-scale",
+        "property": "minScale",
+        "type": "number"
+      },
+      {
+        "name": "max-scale",
+        "property": "maxScale",
+        "type": "number"
+      },
+      {
+        "name": "markers",
+        "property": "markers",
+        "type": "other"
+      },
+      {
+        "name": "covers",
+        "property": "covers",
+        "type": "other"
+      },
+      {
+        "name": "polyline",
+        "property": "polyline",
+        "type": "other"
+      },
+      {
+        "name": "circles",
+        "property": "circles",
+        "type": "other"
+      },
+      {
+        "name": "controls",
+        "property": "controls",
+        "type": "other"
+      },
+      {
+        "name": "include-points",
+        "property": "includePoints",
+        "type": "other"
+      },
+      {
+        "name": "show-location",
+        "property": "showLocation",
+        "type": "boolean"
+      },
+      {
+        "name": "polygons",
+        "property": "polygons",
+        "type": "other"
+      },
+      {
+        "name": "subkey",
+        "property": "subkey",
+        "type": "string"
+      },
+      {
+        "name": "layer-style",
+        "property": "layerStyle",
+        "type": "number"
+      },
+      {
+        "name": "rotate",
+        "property": "rotate",
+        "type": "number"
+      },
+      {
+        "name": "skew",
+        "property": "skew",
+        "type": "number"
+      },
+      {
+        "name": "enable-3D",
+        "property": "enable3D",
+        "type": "boolean"
+      },
+      {
+        "name": "show-compass",
+        "property": "showCompass",
+        "type": "boolean"
+      },
+      {
+        "name": "show-scale",
+        "property": "showScale",
+        "type": "boolean"
+      },
+      {
+        "name": "enable-overlooking",
+        "property": "enableOverlooking",
+        "type": "boolean"
+      },
+      {
+        "name": "enable-auto-max-overlooking",
+        "property": "enableAutoMaxOverlooking",
+        "type": "boolean"
+      },
+      {
+        "name": "enable-zoom",
+        "property": "enableZoom",
+        "type": "boolean"
+      },
+      {
+        "name": "enable-scroll",
+        "property": "enableScroll",
+        "type": "boolean"
+      },
+      {
+        "name": "enable-rotate",
+        "property": "enableRotate",
+        "type": "boolean"
+      },
+      {
+        "name": "enable-satellite",
+        "property": "enableSatellite",
+        "type": "boolean"
+      },
+      {
+        "name": "enable-traffic",
+        "property": "enableTraffic",
+        "type": "boolean"
+      },
+      {
+        "name": "enable-poi",
+        "property": "enablePoi",
+        "type": "boolean"
+      },
+      {
+        "name": "enable-building",
+        "property": "enableBuilding",
+        "type": "boolean"
+      },
+      {
+        "name": "setting",
+        "property": "setting",
+        "type": "other"
+      }
+    ],
+    "defaults": {
+      "longitude": 116.46,
+      "latitude": 39.92,
+      "scale": 16,
+      "minScale": 3,
+      "maxScale": 20,
+      "markers": [],
+      "covers": [],
+      "polyline": [],
+      "circles": [],
+      "controls": [],
+      "includePoints": [],
+      "showLocation": false,
+      "polygons": [],
+      "subkey": "",
+      "layerStyle": 1,
+      "rotate": 0,
+      "skew": 0,
+      "enable3D": false,
+      "showCompass": false,
+      "showScale": false,
+      "enableOverlooking": false,
+      "enableAutoMaxOverlooking": null,
+      "enableZoom": true,
+      "enableScroll": true,
+      "enableRotate": false,
+      "enableSatellite": false,
+      "enableTraffic": false,
+      "enablePoi": true,
+      "enableBuilding": true,
+      "setting": {}
+    },
+    "values": {
+      "longitude": 7,
+      "latitude": 7,
+      "scale": 7,
+      "minScale": 7,
+      "maxScale": 7,
+      "showLocation": true,
+      "subkey": "suite",
+      "layerStyle": 7,
+      "rotate": 7,
+      "skew": 7,
+      "enable3D": true,
+      "showCompass": true,
+      "showScale": true,
+      "enableOverlooking": true,
+      "enableAutoMaxOverlooking": true,
+      "enableZoom": true,
+      "enableScroll": true,
+      "enableRotate": true,
+      "enableSatellite": true,
+      "enableTraffic": true,
+      "enablePoi": true,
+      "enableBuilding": true
+    },
+    "bound": {
+      "longitude": 7,
+      "latitude": 7,
+      "scale": 7,
+      "minScale": 7,
+      "maxScale": 7,
+      "showLocation": true,
+      "subkey": "suite",
+      "layerStyle": 7,
+      "rotate": 7,
+      "skew": 7,
+      "enable3D": true,
+      "showCompass": true,
+      "showScale": true,
+      "enableOverlooking": true,
+      "enableAutoMaxOverlooking": null,
+      "enableZoom": true,
+      "enableScroll": true,
+      "enableRotate": true,
+      "enableSatellite": true,
+      "enableTraffic": true,
+      "enablePoi": true,
+      "enableBuilding": true
+    }
+  },
+  "match-media": {
+    "attributes": [
+      {
+        "name": "min-width",
+        "property": "minWidth",
+        "type": "number"
+      },
+      {
+        "name": "max-width",
+        "property": "maxWidth",
+        "type": "number"
+      },
+      {
+        "name": "width",
+        "property": "width",
+        "type": "number"
+      },
+      {
+        "name": "min-height",
+        "property": "minHeight",
+        "type": "number"
+      },
+      {
+        "name": "max-height",
+        "property": "maxHeight",
+        "type": "number"
+      },
+      {
+        "name": "height",
+        "property": "height",
+        "type": "number"
+      },
+      {
+        "name": "orientation",
+        "property": "orientation",
+        "type": "string"
+      }
+    ],
+    "defaults": {
+      "minWidth": 0,
+      "maxWidth": 0,
+      "width": 0,
+      "minHeight": 0,
+      "maxHeight": 0,
+      "height": 0,
+      "orientation": ""
+    },
+    "values": {
+      "minWidth": 7,
+      "maxWidth": 7,
+      "width": 7,
+      "minHeight": 7,
+      "maxHeight": 7,
+      "height": 7,
+      "orientation": "suite"
+    },
+    "bound": {
+      "minWidth": 7,
+      "maxWidth": 7,
+      "width": 7,
+      "minHeight": 7,
+      "maxHeight": 7,
+      "height": 7,
+      "orientation": "suite"
+    }
+  },
+  "movable-area": {
+    "attributes": [
+      {
+        "name": "scale-area",
+        "property": "scaleArea",
+        "type": "boolean"
+      }
+    ],
+    "defaults": {
+      "scaleArea": false
+    },
+    "values": {
+      "scaleArea": true
+    },
+    "bound": {
+      "scaleArea": true
+    }
+  },
+  "movable-view": {
+    "attributes": [
+      {
+        "name": "direction",
+        "property": "direction",
+        "type": "string"
+      },
+      {
+        "name": "inertia",
+        "property": "inertia",
+        "type": "boolean"
+      },
+      {
+        "name": "out-of-bounds",
+        "property": "outOfBounds",
+        "type": "boolean"
+      },
+      {
+        "name": "x",
+        "property": "x",
+        "type": "number"
+      },
+      {
+        "name": "y",
+        "property": "y",
+        "type": "number"
+      },
+      {
+        "name": "damping",
+        "property": "damping",
+        "type": "number"
+      },
+      {
+        "name": "friction",
+        "property": "friction",
+        "type": "number"
+      },
+      {
+        "name": "disabled",
+        "property": "disabled",
+        "type": "boolean"
+      },
+      {
+        "name": "scale",
+        "property": "scale",
+        "type": "boolean"
+      },
+      {
+        "name": "scale-min",
+        "property": "scaleMin",
+        "type": "number"
+      },
+      {
+        "name": "scale-max",
+        "property": "scaleMax",
+        "type": "number"
+      },
+      {
+        "name": "scale-value",
+        "property": "scaleValue",
+        "type": "number"
+      },
+      {
+        "name": "animation",
+        "property": "animation",
+        "type": "boolean"
+      }
+    ],
+    "defaults": {
+      "direction": "none",
+      "inertia": false,
+      "outOfBounds": false,
+      "x": 0,
+      "y": 0,
+      "damping": 20,
+      "friction": 2,
+      "disabled": false,
+      "scale": false,
+      "scaleMin": 0.1,
+      "scaleMax": 10,
+      "scaleValue": 1,
+      "animation": true
+    },
+    "values": {
+      "direction": "suite",
+      "inertia": true,
+      "outOfBounds": true,
+      "x": 7,
+      "y": 7,
+      "damping": 7,
+      "friction": 7,
+      "disabled": true,
+      "scale": true,
+      "scaleMin": 7,
+      "scaleMax": 7,
+      "scaleValue": 7,
+      "animation": true
+    },
+    "bound": {
+      "direction": "suite",
+      "inertia": true,
+      "outOfBounds": true,
+      "x": 7,
+      "y": 7,
+      "damping": 7,
+      "friction": 7,
+      "disabled": true,
+      "scale": true,
+      "scaleMin": 7,
+      "scaleMax": 7,
+      "scaleValue": 7,
+      "animation": true
+    }
+  },
+  "navigator": {
+    "attributes": [
+      {
+        "name": "target",
+        "property": "target",
+        "type": "string",
+        "values": [
+          "self",
+          "miniProgram"
+        ]
+      },
+      {
+        "name": "url",
+        "property": "url",
+        "type": "string"
+      },
+      {
+        "name": "open-type",
+        "property": "openType",
+        "type": "string",
+        "values": [
+          "navigate",
+          "redirect",
+          "switchTab",
+          "reLaunch",
+          "navigateBack",
+          "exit"
+        ]
+      },
+      {
+        "name": "delta",
+        "property": "delta",
+        "type": "number"
+      },
+      {
+        "name": "app-id",
+        "property": "appId",
+        "type": "string"
+      },
+      {
+        "name": "path",
+        "property": "path",
+        "type": "string"
+      },
+      {
+        "name": "extra-data",
+        "property": "extraData",
+        "type": "other"
+      },
+      {
+        "name": "version",
+        "property": "version",
+        "type": "string",
+        "values": [
+          "develop",
+          "trial",
+          "release"
+        ]
+      },
+      {
+        "name": "short-link",
+        "property": "shortLink",
+        "type": "string"
+      },
+      {
+        "name": "hover-class",
+        "property": "hoverClass",
+        "type": "string"
+      },
+      {
+        "name": "hover-stop-propagation",
+        "property": "hoverStopPropagation",
+        "type": "boolean"
+      },
+      {
+        "name": "hover-start-time",
+        "property": "hoverStartTime",
+        "type": "number"
+      },
+      {
+        "name": "hover-stay-time",
+        "property": "hoverStayTime",
+        "type": "number"
+      }
+    ],
+    "defaults": {
+      "target": "self",
+      "url": "",
+      "openType": "navigate",
+      "delta": 1,
+      "appId": "",
+      "path": "",
+      "extraData": "",
+      "version": "release",
+      "shortLink": "",
+      "hoverClass": "",
+      "hoverStopPropagation": false,
+      "hoverStartTime": 50,
+      "hoverStayTime": 600
+    },
+    "values": {
+      "target": "miniProgram",
+      "url": "suite",
+      "openType": "redirect",
+      "delta": 7,
+      "appId": "suite",
+      "path": "suite",
+      "version": "trial",
+      "shortLink": "suite",
+      "hoverClass": "suite",
+      "hoverStopPropagation": true,
+      "hoverStartTime": 7,
+      "hoverStayTime": 7
+    },
+    "bound": {
+      "target": "miniProgram",
+      "url": "suite",
+      "openType": "redirect",
+      "delta": 7,
+      "appId": "suite",
+      "path": "suite",
+      "version": "trial",
+      "shortLink": "suite",
+      "hoverClass": "suite",
+      "hoverStopPropagation": true,
+      "hoverStartTime": 7,
+      "hoverStayTime": 7
+    }
+  },
+  "picker-view-column": {
+    "attributes": [],
+    "defaults": {},
+    "values": {},
+    "bound": {}
+  },
+  "picker-view": {
+    "attributes": [
+      {
+        "name": "value",
+        "property": "value",
+        "type": "other"
+      },
+      {
+        "name": "mask-class",
+        "property": "maskClass",
+        "type": "string"
+      },
+      {
+        "name": "indicator-style",
+        "property": "indicatorStyle",
+        "type": "string"
+      }
+    ],
+    "defaults": {
+      "value": [],
+      "maskClass": "",
+      "indicatorStyle": ""
+    },
+    "values": {
+      "maskClass": "suite",
+      "indicatorStyle": "suite"
+    },
+    "bound": {
+      "maskClass": "suite",
+      "indicatorStyle": "suite"
+    }
+  },
+  "picker": {
+    "attributes": [
+      {
+        "name": "header-text",
+        "property": "headerText",
+        "type": "string"
+      },
+      {
+        "name": "mode",
+        "property": "mode",
+        "type": "string",
+        "values": [
+          "selector",
+          "multiSelector",
+          "time",
+          "date",
+          "region"
+        ]
+      },
+      {
+        "name": "disabled",
+        "property": "disabled",
+        "type": "boolean"
+      },
+      {
+        "name": "range",
+        "property": "range",
+        "type": "other"
+      },
+      {
+        "name": "range-key",
+        "property": "rangeKey",
+        "type": "string"
+      },
+      {
+        "name": "value",
+        "property": "value",
+        "type": "other"
+      },
+      {
+        "name": "start",
+        "property": "start",
+        "type": "string"
+      },
+      {
+        "name": "end",
+        "property": "end",
+        "type": "string"
+      },
+      {
+        "name": "fields",
+        "property": "fields",
+        "type": "string",
+        "values": [
+          "year",
+          "month",
+          "day"
+        ]
+      },
+      {
+        "name": "custom-item",
+        "property": "customItem",
+        "type": "string"
+      },
+      {
+        "name": "level",
+        "property": "level",
+        "type": "string",
+        "values": [
+          "province",
+          "city",
+          "region",
+          "sub-district"
+        ]
+      }
+    ],
+    "defaults": {
+      "headerText": "",
+      "mode": "selector",
+      "disabled": false,
+      "range": [],
+      "rangeKey": "",
+      "value": "",
+      "start": "",
+      "end": "",
+      "fields": "day",
+      "customItem": "",
+      "level": ""
+    },
+    "values": {
+      "headerText": "suite",
+      "mode": "multiSelector",
+      "disabled": true,
+      "rangeKey": "suite",
+      "start": "suite",
+      "end": "suite",
+      "fields": "month",
+      "customItem": "suite",
+      "level": "city"
+    },
+    "bound": {
+      "headerText": "suite",
+      "mode": "multiSelector",
+      "disabled": true,
+      "rangeKey": "suite",
+      "start": "suite",
+      "end": "suite",
+      "fields": "month",
+      "customItem": "suite",
+      "level": "city"
+    }
+  },
+  "progress": {
+    "attributes": [
+      {
+        "name": "percent",
+        "property": "percent",
+        "type": "number"
+      },
+      {
+        "name": "show-info",
+        "property": "showInfo",
+        "type": "boolean"
+      },
+      {
+        "name": "border-radius",
+        "property": "borderRadius",
+        "type": "number"
+      },
+      {
+        "name": "font-size",
+        "property": "fontSize",
+        "type": "number"
+      },
+      {
+        "name": "stroke-width",
+        "property": "strokeWidth",
+        "type": "number"
+      },
+      {
+        "name": "color",
+        "property": "color",
+        "type": "string"
+      },
+      {
+        "name": "activeColor",
+        "property": "activeColor",
+        "type": "string"
+      },
+      {
+        "name": "backgroundColor",
+        "property": "backgroundColor",
+        "type": "string"
+      },
+      {
+        "name": "active",
+        "property": "active",
+        "type": "boolean"
+      },
+      {
+        "name": "active-mode",
+        "property": "activeMode",
+        "type": "string"
+      },
+      {
+        "name": "duration",
+        "property": "duration",
+        "type": "number"
+      }
+    ],
+    "defaults": {
+      "percent": 0,
+      "showInfo": false,
+      "borderRadius": 0,
+      "fontSize": 16,
+      "strokeWidth": 6,
+      "color": "#09BB07",
+      "activeColor": "#09BB07",
+      "backgroundColor": "#EBEBEB",
+      "active": false,
+      "activeMode": "backwards",
+      "duration": 30
+    },
+    "values": {
+      "percent": 7,
+      "showInfo": true,
+      "borderRadius": 7,
+      "fontSize": 7,
+      "strokeWidth": 7,
+      "color": "suite",
+      "activeColor": "suite",
+      "backgroundColor": "suite",
+      "active": true,
+      "activeMode": "suite",
+      "duration": 7
+    },
+    "bound": {
+      "percent": 7,
+      "showInfo": true,
+      "borderRadius": "7",
+      "fontSize": "7",
+      "strokeWidth": "7",
+      "color": "suite",
+      "activeColor": "suite",
+      "backgroundColor": "suite",
+      "active": true,
+      "activeMode": "suite",
+      "duration": 7
+    }
+  },
+  "radio-group": {
+    "attributes": [],
+    "defaults": {},
+    "values": {},
+    "bound": {}
+  },
+  "radio": {
+    "attributes": [
+      {
+        "name": "value",
+        "property": "value",
+        "type": "string"
+      },
+      {
+        "name": "checked",
+        "property": "checked",
+        "type": "boolean"
+      },
+      {
+        "name": "disabled",
+        "property": "disabled",
+        "type": "boolean"
+      },
+      {
+        "name": "color",
+        "property": "color",
+        "type": "string"
+      }
+    ],
+    "defaults": {
+      "value": "",
+      "checked": false,
+      "disabled": false,
+      "color": ""
+    },
+    "values": {
+      "value": "suite",
+      "checked": true,
+      "disabled": true,
+      "color": "suite"
+    },
+    "bound": {
+      "value": "suite",
+      "checked": true,
+      "disabled": true,
+      "color": "suite"
+    }
+  },
+  "rich-text": {
+    "attributes": [
+      {
+        "name": "nodes",
+        "property": "nodes",
+        "type": "other"
+      },
+      {
+        "name": "space",
+        "property": "space",
+        "type": "string",
+        "values": [
+          "ensp",
+          "emsp",
+          "nbsp"
+        ]
+      },
+      {
+        "name": "user-select",
+        "property": "userSelect",
+        "type": "boolean"
+      }
+    ],
+    "defaults": {
+      "nodes": null,
+      "space": "",
+      "userSelect": false
+    },
+    "values": {
+      "space": "emsp",
+      "userSelect": true
+    },
+    "bound": {
+      "space": "emsp",
+      "userSelect": true
+    }
+  },
+  "scroll-view": {
+    "attributes": [
+      {
+        "name": "scroll-x",
+        "property": "scrollX",
+        "type": "boolean"
+      },
+      {
+        "name": "scroll-y",
+        "property": "scrollY",
+        "type": "boolean"
+      },
+      {
+        "name": "upper-threshold",
+        "property": "upperThreshold",
+        "type": "number"
+      },
+      {
+        "name": "lower-threshold",
+        "property": "lowerThreshold",
+        "type": "number"
+      },
+      {
+        "name": "scroll-top",
+        "property": "scrollTop",
+        "type": "number"
+      },
+      {
+        "name": "scroll-left",
+        "property": "scrollLeft",
+        "type": "number"
+      },
+      {
+        "name": "scroll-into-view",
+        "property": "scrollIntoView",
+        "type": "string"
+      },
+      {
+        "name": "scroll-into-view-offset",
+        "property": "scrollIntoViewOffset",
+        "type": "number"
+      },
+      {
+        "name": "scroll-with-animation",
+        "property": "scrollWithAnimation",
+        "type": "boolean"
+      },
+      {
+        "name": "enable-back-to-top",
+        "property": "enableBackToTop",
+        "type": "boolean"
+      },
+      {
+        "name": "enable-passive",
+        "property": "enablePassive",
+        "type": "boolean"
+      },
+      {
+        "name": "refresher-enabled",
+        "property": "refresherEnabled",
+        "type": "boolean"
+      },
+      {
+        "name": "refresher-threshold",
+        "property": "refresherThreshold",
+        "type": "number"
+      },
+      {
+        "name": "refresher-default-style",
+        "property": "refresherDefaultStyle",
+        "type": "string"
+      },
+      {
+        "name": "refresher-background",
+        "property": "refresherBackground",
+        "type": "string"
+      },
+      {
+        "name": "refresher-triggered",
+        "property": "refresherTriggered",
+        "type": "boolean"
+      },
+      {
+        "name": "bounces",
+        "property": "bounces",
+        "type": "boolean"
+      },
+      {
+        "name": "show-scrollbar",
+        "property": "showScrollbar",
+        "type": "boolean"
+      },
+      {
+        "name": "fast-deceleration",
+        "property": "fastDeceleration",
+        "type": "boolean"
+      },
+      {
+        "name": "scroll-anchoring",
+        "property": "scrollAnchoring",
+        "type": "boolean"
+      }
+    ],
+    "defaults": {
+      "scrollX": false,
+      "scrollY": false,
+      "upperThreshold": 50,
+      "lowerThreshold": 50,
+      "scrollTop": "",
+      "scrollLeft": "",
+      "scrollIntoView": "",
+      "scrollIntoViewOffset": 0,
+      "scrollWithAnimation": false,
+      "enableBackToTop": false,
+      "enablePassive": false,
+      "refresherEnabled": false,
+      "refresherThreshold": 45,
+      "refresherDefaultStyle": "black",
+      "refresherBackground": "",
+      "refresherTriggered": false,
+      "bounces": true,
+      "showScrollbar": true,
+      "fastDeceleration": false,
+      "scrollAnchoring": false
+    },
+    "values": {
+      "scrollX": true,
+      "scrollY": true,
+      "upperThreshold": 7,
+      "lowerThreshold": 7,
+      "scrollTop": 7,
+      "scrollLeft": 7,
+      "scrollIntoView": "suite",
+      "scrollIntoViewOffset": 7,
+      "scrollWithAnimation": true,
+      "enableBackToTop": true,
+      "enablePassive": true,
+      "refresherEnabled": true,
+      "refresherThreshold": 7,
+      "refresherDefaultStyle": "suite",
+      "refresherBackground": "suite",
+      "refresherTriggered": true,
+      "bounces": true,
+      "showScrollbar": true,
+      "fastDeceleration": true,
+      "scrollAnchoring": true
+    },
+    "bound": {
+      "scrollX": true,
+      "scrollY": true,
+      "upperThreshold": "7",
+      "lowerThreshold": "7",
+      "scrollTop": "7",
+      "scrollLeft": "7",
+      "scrollIntoView": "suite",
+      "scrollIntoViewOffset": 7,
+      "scrollWithAnimation": true,
+      "enableBackToTop": true,
+      "enablePassive": true,
+      "refresherEnabled": true,
+      "refresherThreshold": 7,
+      "refresherDefaultStyle": "suite",
+      "refresherBackground": "suite",
+      "refresherTriggered": true,
+      "bounces": true,
+      "showScrollbar": true,
+      "fastDeceleration": true,
+      "scrollAnchoring": true
+    }
+  },
+  "slider": {
+    "attributes": [
+      {
+        "name": "min",
+        "property": "min",
+        "type": "number"
+      },
+      {
+        "name": "max",
+        "property": "max",
+        "type": "number"
+      },
+      {
+        "name": "step",
+        "property": "step",
+        "type": "number"
+      },
+      {
+        "name": "disabled",
+        "property": "disabled",
+        "type": "boolean"
+      },
+      {
+        "name": "value",
+        "property": "value",
+        "type": "number"
+      },
+      {
+        "name": "color",
+        "property": "color",
+        "type": "color"
+      },
+      {
+        "name": "selected-color",
+        "property": "selectedColor",
+        "type": "color"
+      },
+      {
+        "name": "activeColor",
+        "property": "activeColor",
+        "type": "color"
+      },
+      {
+        "name": "backgroundColor",
+        "property": "backgroundColor",
+        "type": "color"
+      },
+      {
+        "name": "block-size",
+        "property": "blockSize",
+        "type": "number"
+      },
+      {
+        "name": "block-color",
+        "property": "blockColor",
+        "type": "color"
+      },
+      {
+        "name": "show-value",
+        "property": "showValue",
+        "type": "boolean"
+      }
+    ],
+    "defaults": {
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "disabled": false,
+      "value": 0,
+      "color": "",
+      "selectedColor": "#1AAD19",
+      "activeColor": "#1AAD19",
+      "backgroundColor": "#E9E9E9",
+      "blockSize": 28,
+      "blockColor": "#FFFFFF",
+      "showValue": false
+    },
+    "values": {
+      "min": 7,
+      "max": 7,
+      "step": 7,
+      "disabled": true,
+      "value": 7,
+      "color": "#123456",
+      "selectedColor": "#123456",
+      "activeColor": "#123456",
+      "backgroundColor": "#123456",
+      "blockSize": 7,
+      "blockColor": "#123456",
+      "showValue": true
+    },
+    "bound": {
+      "min": 7,
+      "max": 7,
+      "step": 7,
+      "disabled": true,
+      "value": 7,
+      "color": "#123456",
+      "selectedColor": "#123456",
+      "activeColor": "#123456",
+      "backgroundColor": "#123456",
+      "blockSize": 7,
+      "blockColor": "#123456",
+      "showValue": true
+    }
+  },
+  "swiper-item": {
+    "attributes": [
+      {
+        "name": "item-id",
+        "property": "itemId",
+        "type": "string"
+      },
+      {
+        "name": "skip-hidden-item-layout",
+        "property": "skipHiddenItemLayout",
+        "type": "boolean"
+      }
+    ],
+    "defaults": {
+      "itemId": "",
+      "skipHiddenItemLayout": null
+    },
+    "values": {
+      "itemId": "suite",
+      "skipHiddenItemLayout": true
+    },
+    "bound": {
+      "itemId": "suite",
+      "skipHiddenItemLayout": null
+    }
+  },
+  "swiper": {
+    "attributes": [
+      {
+        "name": "indicator-dots",
+        "property": "indicatorDots",
+        "type": "boolean"
+      },
+      {
+        "name": "indicator-color",
+        "property": "indicatorColor",
+        "type": "color"
+      },
+      {
+        "name": "indicator-active-color",
+        "property": "indicatorActiveColor",
+        "type": "color"
+      },
+      {
+        "name": "autoplay",
+        "property": "autoplay",
+        "type": "boolean"
+      },
+      {
+        "name": "current",
+        "property": "current",
+        "type": "number"
+      },
+      {
+        "name": "interval",
+        "property": "interval",
+        "type": "number"
+      },
+      {
+        "name": "duration",
+        "property": "duration",
+        "type": "number"
+      },
+      {
+        "name": "circular",
+        "property": "circular",
+        "type": "boolean"
+      },
+      {
+        "name": "vertical",
+        "property": "vertical",
+        "type": "boolean"
+      },
+      {
+        "name": "display-multiple-items",
+        "property": "displayMultipleItems",
+        "type": "number"
+      },
+      {
+        "name": "previous-margin",
+        "property": "previousMargin",
+        "type": "string"
+      },
+      {
+        "name": "next-margin",
+        "property": "nextMargin",
+        "type": "string"
+      },
+      {
+        "name": "easing-function",
+        "property": "easingFunction",
+        "type": "string",
+        "values": [
+          "default",
+          "linear",
+          "easeInCubic",
+          "easeOutCubic",
+          "easeInOutCubic"
+        ]
+      },
+      {
+        "name": "direction",
+        "property": "direction",
+        "type": "string",
+        "values": [
+          "all",
+          "positive",
+          "negative"
+        ]
+      }
+    ],
+    "defaults": {
+      "indicatorDots": false,
+      "indicatorColor": "",
+      "indicatorActiveColor": "",
+      "autoplay": false,
+      "current": 0,
+      "interval": 5000,
+      "duration": 500,
+      "circular": false,
+      "vertical": false,
+      "displayMultipleItems": 1,
+      "previousMargin": "",
+      "nextMargin": "",
+      "easingFunction": "default",
+      "direction": null
+    },
+    "values": {
+      "indicatorDots": true,
+      "indicatorColor": "#123456",
+      "indicatorActiveColor": "#123456",
+      "current": 7,
+      "interval": 7,
+      "duration": 7,
+      "circular": true,
+      "vertical": true,
+      "displayMultipleItems": 7,
+      "previousMargin": "suite",
+      "nextMargin": "suite",
+      "easingFunction": "linear",
+      "direction": "positive"
+    },
+    "bound": {
+      "indicatorDots": true,
+      "indicatorColor": "#123456",
+      "indicatorActiveColor": "#123456",
+      "current": 7,
+      "interval": 7,
+      "duration": 7,
+      "circular": true,
+      "vertical": true,
+      "displayMultipleItems": 7,
+      "previousMargin": "suite",
+      "nextMargin": "suite",
+      "easingFunction": "linear",
+      "direction": null
+    }
+  },
+  "switch": {
+    "attributes": [
+      {
+        "name": "checked",
+        "property": "checked",
+        "type": "boolean"
+      },
+      {
+        "name": "disabled",
+        "property": "disabled",
+        "type": "boolean"
+      },
+      {
+        "name": "type",
+        "property": "type",
+        "type": "string"
+      },
+      {
+        "name": "color",
+        "property": "color",
+        "type": "string"
+      }
+    ],
+    "defaults": {
+      "checked": false,
+      "disabled": false,
+      "type": "switch",
+      "color": ""
+    },
+    "values": {
+      "checked": true,
+      "disabled": true,
+      "type": "suite",
+      "color": "suite"
+    },
+    "bound": {
+      "checked": true,
+      "disabled": true,
+      "type": "suite",
+      "color": "suite"
+    }
+  },
+  "text": {
+    "attributes": [
+      {
+        "name": "selectable",
+        "property": "selectable",
+        "type": "boolean"
+      },
+      {
+        "name": "user-select",
+        "property": "userSelect",
+        "type": "boolean"
+      }
+    ],
+    "defaults": {
+      "selectable": false,
+      "userSelect": false
+    },
+    "values": {
+      "selectable": true,
+      "userSelect": true
+    },
+    "bound": {
+      "selectable": true,
+      "userSelect": true
+    }
+  },
+  "textarea": {
+    "attributes": [
+      {
+        "name": "value",
+        "property": "value",
+        "type": "string"
+      },
+      {
+        "name": "placeholder",
+        "property": "placeholder",
+        "type": "string"
+      },
+      {
+        "name": "placeholder-style",
+        "property": "placeholderStyle",
+        "type": "string"
+      },
+      {
+        "name": "disabled",
+        "property": "disabled",
+        "type": "boolean"
+      },
+      {
+        "name": "maxlength",
+        "property": "maxlength",
+        "type": "number"
+      },
+      {
+        "name": "auto-focus",
+        "property": "autoFocus",
+        "type": "boolean"
+      },
+      {
+        "name": "focus",
+        "property": "focus",
+        "type": "boolean"
+      },
+      {
+        "name": "auto-height",
+        "property": "autoHeight",
+        "type": "boolean"
+      },
+      {
+        "name": "cursor-spacing",
+        "property": "cursorSpacing",
+        "type": "number"
+      },
+      {
+        "name": "cursor",
+        "property": "cursor",
+        "type": "number"
+      },
+      {
+        "name": "selection-start",
+        "property": "selectionStart",
+        "type": "number"
+      },
+      {
+        "name": "selection-end",
+        "property": "selectionEnd",
+        "type": "number"
+      },
+      {
+        "name": "adjust-position",
+        "property": "adjustPosition",
+        "type": "boolean"
+      },
+      {
+        "name": "hold-keyboard",
+        "property": "holdKeyboard",
+        "type": "boolean"
+      },
+      {
+        "name": "disable-default-padding",
+        "property": "disableDefaultPadding",
+        "type": "boolean"
+      },
+      {
+        "name": "confirm-type",
+        "property": "confirmType",
+        "type": "string",
+        "values": [
+          "send",
+          "search",
+          "next",
+          "go",
+          "done",
+          "return"
+        ]
+      },
+      {
+        "name": "confirm-hold",
+        "property": "confirmHold",
+        "type": "boolean"
+      },
+      {
+        "name": "adjust-keyboard-to",
+        "property": "adjustKeyboardTo",
+        "type": "boolean",
+        "values": [
+          "cursor",
+          "bottom"
+        ]
+      }
+    ],
+    "defaults": {
+      "value": "",
+      "placeholder": "",
+      "placeholderStyle": "",
+      "disabled": false,
+      "maxlength": 140,
+      "autoFocus": false,
+      "focus": 0,
+      "autoHeight": false,
+      "cursorSpacing": null,
+      "cursor": -1,
+      "selectionStart": -1,
+      "selectionEnd": -1,
+      "adjustPosition": null,
+      "holdKeyboard": null,
+      "disableDefaultPadding": null,
+      "confirmType": "return",
+      "confirmHold": false,
+      "adjustKeyboardTo": "cursor"
+    },
+    "values": {
+      "value": "suite",
+      "placeholder": "suite",
+      "placeholderStyle": "suite",
+      "disabled": true,
+      "maxlength": 7,
+      "autoHeight": true,
+      "cursorSpacing": 7,
+      "cursor": 7,
+      "selectionStart": 7,
+      "selectionEnd": 7,
+      "adjustPosition": true,
+      "holdKeyboard": true,
+      "disableDefaultPadding": true,
+      "confirmType": "search",
+      "confirmHold": true,
+      "adjustKeyboardTo": true
+    },
+    "bound": {
+      "value": "suite",
+      "placeholder": "suite",
+      "placeholderStyle": "suite",
+      "disabled": true,
+      "maxlength": 7,
+      "autoHeight": true,
+      "cursorSpacing": null,
+      "cursor": 7,
+      "selectionStart": 7,
+      "selectionEnd": 7,
+      "adjustPosition": null,
+      "holdKeyboard": null,
+      "disableDefaultPadding": null,
+      "confirmType": "search",
+      "confirmHold": true,
+      "adjustKeyboardTo": "true"
+    }
+  },
+  "video": {
+    "attributes": [
+      {
+        "name": "src",
+        "property": "src",
+        "type": "string"
+      },
+      {
+        "name": "duration",
+        "property": "duration",
+        "type": "number"
+      },
+      {
+        "name": "controls",
+        "property": "controls",
+        "type": "boolean"
+      },
+      {
+        "name": "danmu-list",
+        "property": "danmuList",
+        "type": "other"
+      },
+      {
+        "name": "danmu-btn",
+        "property": "danmuBtn",
+        "type": "boolean"
+      },
+      {
+        "name": "enable-danmu",
+        "property": "enableDanmu",
+        "type": "boolean"
+      },
+      {
+        "name": "autoplay",
+        "property": "autoplay",
+        "type": "boolean"
+      },
+      {
+        "name": "loop",
+        "property": "loop",
+        "type": "boolean"
+      },
+      {
+        "name": "muted",
+        "property": "muted",
+        "type": "boolean"
+      },
+      {
+        "name": "initial-time",
+        "property": "initialTime",
+        "type": "number"
+      },
+      {
+        "name": "page-gesture",
+        "property": "pageGesture",
+        "type": "boolean"
+      },
+      {
+        "name": "direction",
+        "property": "direction",
+        "type": "number",
+        "values": [
+          "0",
+          "90",
+          "-90"
+        ]
+      },
+      {
+        "name": "show-progress",
+        "property": "showProgress",
+        "type": "boolean"
+      },
+      {
+        "name": "show-fullscreen-btn",
+        "property": "showFullscreenBtn",
+        "type": "boolean"
+      },
+      {
+        "name": "show-play-btn",
+        "property": "showPlayBtn",
+        "type": "boolean"
+      },
+      {
+        "name": "show-center-play-btn",
+        "property": "showCenterPlayBtn",
+        "type": "boolean"
+      },
+      {
+        "name": "enable-progress-gesture",
+        "property": "enableProgressGesture",
+        "type": "boolean"
+      },
+      {
+        "name": "object-fit",
+        "property": "objectFit",
+        "type": "string",
+        "values": [
+          "contain",
+          "fill",
+          "cover"
+        ]
+      },
+      {
+        "name": "poster",
+        "property": "poster",
+        "type": "string"
+      },
+      {
+        "name": "show-mute-btn",
+        "property": "showMuteBtn",
+        "type": "boolean"
+      },
+      {
+        "name": "title",
+        "property": "title",
+        "type": "string"
+      },
+      {
+        "name": "play-btn-position",
+        "property": "playBtnPosition",
+        "type": "string",
+        "values": [
+          "bottom",
+          "center"
+        ]
+      },
+      {
+        "name": "enable-play-gesture",
+        "property": "enablePlayGesture",
+        "type": "boolean"
+      },
+      {
+        "name": "auto-pause-if-navigate",
+        "property": "autoPauseIfNavigate",
+        "type": "boolean"
+      },
+      {
+        "name": "auto-pause-if-open-native",
+        "property": "autoPauseIfOpenNative",
+        "type": "boolean"
+      },
+      {
+        "name": "vslide-gesture",
+        "property": "vslideGesture",
+        "type": "boolean"
+      },
+      {
+        "name": "vslide-gesture-in-fullscreen",
+        "property": "vslideGestureInFullscreen",
+        "type": "boolean"
+      },
+      {
+        "name": "show-bottom-progress",
+        "property": "showBottomProgress",
+        "type": "boolean"
+      },
+      {
+        "name": "ad-unit-id",
+        "property": "adUnitId",
+        "type": "string"
+      },
+      {
+        "name": "poster-for-crawler",
+        "property": "posterForCrawler",
+        "type": "string"
+      },
+      {
+        "name": "show-casting-button",
+        "property": "showCastingButton",
+        "type": "boolean"
+      },
+      {
+        "name": "picture-in-picture-mode",
+        "property": "pictureInPictureMode",
+        "type": "other",
+        "values": [
+          "[]",
+          "push",
+          "pop"
+        ]
+      },
+      {
+        "name": "picture-in-picture-show-progress",
+        "property": "pictureInPictureShowProgress",
+        "type": "boolean"
+      },
+      {
+        "name": "picture-in-picture-init-position",
+        "property": "pictureInPictureInitPosition",
+        "type": "string"
+      },
+      {
+        "name": "enable-auto-rotation",
+        "property": "enableAutoRotation",
+        "type": "boolean"
+      },
+      {
+        "name": "show-screen-lock-button",
+        "property": "showScreenLockButton",
+        "type": "boolean"
+      },
+      {
+        "name": "show-snapshot-button",
+        "property": "showSnapshotButton",
+        "type": "boolean"
+      },
+      {
+        "name": "show-background-playback-button",
+        "property": "showBackgroundPlaybackButton",
+        "type": "boolean"
+      },
+      {
+        "name": "background-poster",
+        "property": "backgroundPoster",
+        "type": "string"
+      },
+      {
+        "name": "referrer-policy",
+        "property": "referrerPolicy",
+        "type": "string",
+        "values": [
+          "origin",
+          "no-referrer"
+        ]
+      },
+      {
+        "name": "is-drm",
+        "property": "isDrm",
+        "type": "boolean"
+      },
+      {
+        "name": "is-live",
+        "property": "isLive",
+        "type": "boolean"
+      },
+      {
+        "name": "provision-url",
+        "property": "provisionUrl",
+        "type": "string"
+      },
+      {
+        "name": "certificate-url",
+        "property": "certificateUrl",
+        "type": "string"
+      },
+      {
+        "name": "license-url",
+        "property": "licenseUrl",
+        "type": "string"
+      },
+      {
+        "name": "preferred-peak-bit-rate",
+        "property": "preferredPeakBitRate",
+        "type": "number"
+      }
+    ],
+    "defaults": {
+      "src": "",
+      "duration": 0,
+      "controls": true,
+      "danmuList": [],
+      "danmuBtn": false,
+      "enableDanmu": false,
+      "autoplay": false,
+      "loop": false,
+      "muted": false,
+      "initialTime": 0,
+      "pageGesture": false,
+      "direction": -1,
+      "showProgress": true,
+      "showFullscreenBtn": true,
+      "showPlayBtn": true,
+      "showCenterPlayBtn": true,
+      "enableProgressGesture": true,
+      "objectFit": "contain",
+      "poster": "",
+      "showMuteBtn": false,
+      "title": "",
+      "playBtnPosition": "bottom",
+      "enablePlayGesture": false,
+      "autoPauseIfNavigate": true,
+      "autoPauseIfOpenNative": true,
+      "vslideGesture": false,
+      "vslideGestureInFullscreen": true,
+      "showBottomProgress": true,
+      "adUnitId": "",
+      "posterForCrawler": "",
+      "showCastingButton": false,
+      "pictureInPictureMode": "",
+      "pictureInPictureShowProgress": false,
+      "pictureInPictureInitPosition": "",
+      "enableAutoRotation": false,
+      "showScreenLockButton": false,
+      "showSnapshotButton": false,
+      "showBackgroundPlaybackButton": true,
+      "backgroundPoster": "",
+      "referrerPolicy": "no-referrer",
+      "isDrm": false,
+      "isLive": false,
+      "provisionUrl": "",
+      "certificateUrl": "",
+      "licenseUrl": "",
+      "preferredPeakBitRate": -1
+    },
+    "values": {
+      "src": "suite",
+      "duration": 7,
+      "controls": true,
+      "danmuBtn": true,
+      "enableDanmu": true,
+      "loop": true,
+      "muted": true,
+      "initialTime": 7,
+      "pageGesture": true,
+      "direction": 90,
+      "showProgress": true,
+      "showFullscreenBtn": true,
+      "showPlayBtn": true,
+      "showCenterPlayBtn": true,
+      "enableProgressGesture": true,
+      "objectFit": "fill",
+      "poster": "suite",
+      "showMuteBtn": true,
+      "title": "suite",
+      "playBtnPosition": "center",
+      "enablePlayGesture": true,
+      "autoPauseIfNavigate": true,
+      "autoPauseIfOpenNative": true,
+      "vslideGesture": true,
+      "vslideGestureInFullscreen": true,
+      "showBottomProgress": true,
+      "adUnitId": "suite",
+      "posterForCrawler": "suite",
+      "showCastingButton": true,
+      "pictureInPictureShowProgress": true,
+      "pictureInPictureInitPosition": "suite",
+      "enableAutoRotation": true,
+      "showScreenLockButton": true,
+      "showSnapshotButton": true,
+      "showBackgroundPlaybackButton": true,
+      "backgroundPoster": "suite",
+      "referrerPolicy": "no-referrer",
+      "isDrm": true,
+      "isLive": true,
+      "provisionUrl": "suite",
+      "certificateUrl": "suite",
+      "licenseUrl": "suite",
+      "preferredPeakBitRate": 7
+    },
+    "bound": {
+      "src": "suite",
+      "duration": 7,
+      "controls": true,
+      "danmuBtn": true,
+      "enableDanmu": true,
+      "loop": true,
+      "muted": true,
+      "initialTime": 7,
+      "pageGesture": true,
+      "direction": 90,
+      "showProgress": true,
+      "showFullscreenBtn": true,
+      "showPlayBtn": true,
+      "showCenterPlayBtn": true,
+      "enableProgressGesture": true,
+      "objectFit": "fill",
+      "poster": "suite",
+      "showMuteBtn": true,
+      "title": "suite",
+      "playBtnPosition": "center",
+      "enablePlayGesture": true,
+      "autoPauseIfNavigate": true,
+      "autoPauseIfOpenNative": true,
+      "vslideGesture": true,
+      "vslideGestureInFullscreen": true,
+      "showBottomProgress": true,
+      "adUnitId": "suite",
+      "posterForCrawler": "suite",
+      "showCastingButton": true,
+      "pictureInPictureShowProgress": true,
+      "pictureInPictureInitPosition": "suite",
+      "enableAutoRotation": true,
+      "showScreenLockButton": true,
+      "showSnapshotButton": true,
+      "showBackgroundPlaybackButton": true,
+      "backgroundPoster": "suite",
+      "referrerPolicy": "no-referrer",
+      "isDrm": true,
+      "isLive": true,
+      "provisionUrl": "suite",
+      "certificateUrl": "suite",
+      "licenseUrl": "suite",
+      "preferredPeakBitRate": 7
+    }
+  },
+  "view": {
+    "attributes": [
+      {
+        "name": "hover-class",
+        "property": "hoverClass",
+        "type": "string"
+      },
+      {
+        "name": "hover-stop-propagation",
+        "property": "hoverStopPropagation",
+        "type": "boolean"
+      },
+      {
+        "name": "hover-start-time",
+        "property": "hoverStartTime",
+        "type": "number"
+      },
+      {
+        "name": "hover-stay-time",
+        "property": "hoverStayTime",
+        "type": "number"
+      }
+    ],
+    "defaults": {
+      "hoverClass": "",
+      "hoverStopPropagation": false,
+      "hoverStartTime": 50,
+      "hoverStayTime": 400
+    },
+    "values": {
+      "hoverClass": "suite",
+      "hoverStopPropagation": true,
+      "hoverStartTime": 7,
+      "hoverStayTime": 7
+    },
+    "bound": {
+      "hoverClass": "suite",
+      "hoverStopPropagation": true,
+      "hoverStartTime": 7,
+      "hoverStayTime": 7
+    }
+  }
+}
