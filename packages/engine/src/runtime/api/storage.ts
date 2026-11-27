@@ -5,6 +5,7 @@
  * 因此字符串、数字、对象、数组都能原样取回；不存在的 key 同步接口返回 ''。
  */
 
+import { decryptValue, encryptValue, type EncryptedValue } from './storage-crypto';
 import type { WxHost } from './types';
 import { invoke, syncResult } from './util';
 
@@ -14,8 +15,10 @@ const MAX_ITEM = 1024 * 1024;
 const MAX_TOTAL = 10 * 1024 * 1024;
 
 interface Record {
-  value: any;
+  raw: string;
+  kind: 'json' | 'date';
   size: number;
+  encrypted?: EncryptedValue;
 }
 
 export class Storage {
@@ -34,10 +37,15 @@ export class Storage {
         const raw = localStorage.getItem(key)!;
         const name = key.slice(PREFIX.length);
         try {
-          this.cache.set(name, { value: JSON.parse(raw), size: byteLength(raw) });
+          const parsed = JSON.parse(raw);
+          if (parsed?.__fmpEncrypted === 1) {
+            this.cache.set(name, { raw, kind: 'json', size: byteLength(raw), encrypted: parsed });
+            continue;
+          }
         } catch {
-          this.cache.set(name, { value: raw, size: byteLength(raw) });
+          /* raw string */
         }
+        this.cache.set(name, { raw, kind: 'json', size: byteLength(raw) });
       }
     } catch {
       /* 隐私模式下不可用 */
@@ -50,10 +58,20 @@ export class Storage {
     return size;
   }
 
+  private decode(record: Record): any {
+    if (record.kind === 'date') return new Date(record.raw);
+    try {
+      return JSON.parse(record.raw);
+    } catch {
+      return record.raw;
+    }
+  }
+
   private read(key: string): any {
     this.load();
     const record = this.cache.get(key);
-    return record ? record.value : '';
+    if (!record || record.encrypted) return '';
+    return this.decode(record);
   }
 
   private has(key: string): boolean {
@@ -61,10 +79,26 @@ export class Storage {
     return this.cache.has(key);
   }
 
-  private write(key: string, value: any) {
-    if (typeof key !== 'string' || !key) throw new Error('parameter error: "key" should be a non-empty string');
+  private write(key: any, value: any, options: { encrypted?: EncryptedValue; strictKey?: boolean } = {}) {
+    if (typeof key !== 'string') {
+      if (options.strictKey) throw new Error('parameter error: "key" should be a non-empty string');
+      return;
+    }
+    if (!key) throw new Error('parameter error: "key" should be a non-empty string');
     if (byteLength(key) > MAX_KEY) throw new Error(`key "${key}" is too long`);
-    const raw = JSON.stringify(value === undefined ? null : value);
+
+    let kind: 'json' | 'date' = 'json';
+    let raw: string | undefined;
+    if (options.encrypted) {
+      raw = JSON.stringify(options.encrypted);
+    } else if (value instanceof Date) {
+      kind = 'date';
+      raw = value.toISOString();
+    } else if (value === undefined || value instanceof ArrayBuffer) {
+      raw = JSON.stringify('');
+    } else {
+      raw = JSON.stringify(value);
+    }
     if (raw === undefined) throw new Error('value is not serializable');
     const size = byteLength(raw);
     if (size > MAX_ITEM) throw new Error(`data size exceeds the limit of ${MAX_ITEM} bytes`);
@@ -73,7 +107,7 @@ export class Storage {
     const previous = this.cache.get(key)?.size ?? 0;
     if (this.total() - previous + size > MAX_TOTAL) throw new Error('exceed storage max size 10MB');
 
-    this.cache.set(key, { value, size });
+    this.cache.set(key, { raw, kind, size, encrypted: options.encrypted });
     try {
       localStorage.setItem(PREFIX + key, raw);
     } catch {
@@ -114,18 +148,29 @@ export class Storage {
   api() {
     return {
       setStorage: (options: any) =>
-        invoke('setStorage', options, opts => {
-          this.write(opts.key, opts.data);
+        invoke('setStorage', options, async opts => {
+          if (opts.encrypt !== undefined && typeof opts.encrypt !== 'boolean') {
+            throw new TypeError('encrypt must be boolean');
+          }
+          if (typeof opts.key !== 'string') return {};
+          const encrypted = opts.encrypt ? await encryptValue(opts.data) : undefined;
+          this.write(opts.key, opts.data, { encrypted });
           return {};
         }),
       setStorageSync: (key: string, data: any) => {
         this.write(key, data);
       },
       getStorage: (options: any) =>
-        invoke('getStorage', options, opts => {
+        invoke('getStorage', options, async opts => {
+          if (opts.encrypt !== undefined && typeof opts.encrypt !== 'boolean') {
+            throw new TypeError('encrypt must be boolean');
+          }
+          const k = String(opts.key ?? '');
           // 官方在 key 不存在时失败，不是返回空字符串
-          if (!this.has(String(opts.key ?? ''))) throw new Error('data not found');
-          return { data: this.read(opts.key) };
+          if (!this.has(k)) throw new Error('data not found');
+          const record = this.cache.get(k)!;
+          if (record.encrypted) return opts.encrypt ? { data: await decryptValue(record.encrypted) } : {};
+          return { data: this.decode(record) };
         }),
       getStorageSync: (key: string) => {
         const value = this.read(String(key ?? ''));
@@ -161,7 +206,7 @@ export class Storage {
       batchGetStorage: (options: any) =>
         invoke('batchGetStorage', options, opts => {
           const keys = Array.isArray(opts.keyList) ? opts.keyList : [];
-          return { data: keys.map((key: string) => this.read(key)) };
+          return { dataList: keys.map((key: string) => this.read(key)) };
         }),
       batchGetStorageSync: (keyList: string[]) => (keyList ?? []).map(key => this.read(key))
     };
