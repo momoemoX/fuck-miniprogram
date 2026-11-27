@@ -8,6 +8,7 @@
  * 描述符按元素缓存，`getState()` 返回的对象因此在多次调用间保持同一份。
  */
 
+import { invoke } from './callbacks';
 import { readDataset } from './events';
 import { selectElements } from './selectors';
 
@@ -26,25 +27,39 @@ export interface Descriptor {
   requestAnimationFrame(callback: () => void): number;
 }
 
+const pendingCalls: Array<() => void> = [];
+export function flushDescriptorCalls() {
+  while (pendingCalls.length) pendingCalls.shift()!();
+}
 const states = new WeakMap<Element, Record<string, unknown>>();
 const descriptors = new WeakMap<Element, Descriptor>();
 
 const kebab = (name: string) => name.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
 
+const overrides = new WeakMap<Element, { styles: Map<string, string>; classes: Map<string, boolean> }>();
+const unitless = new Set(['opacity', 'z-index', 'font-weight', 'line-height', 'flex-grow', 'flex-shrink', 'order']);
+function overlay(el: Element) {
+  let value = overrides.get(el);
+  if (!value) overrides.set(el, value = { styles: new Map(), classes: new Map() });
+  return value;
+}
+export function refreshDescriptorAttributes(el: Element) {
+  const value = overrides.get(el);
+  if (!value) return;
+  for (const [name, text] of value.styles) (el as HTMLElement).style.setProperty(name, text);
+  for (const [name, present] of value.classes) el.classList.toggle(name, present);
+}
 function applyStyle(el: Element, style: string | Record<string, unknown>) {
-  const html = el as HTMLElement;
-  if (typeof style === 'string') {
-    for (const declaration of style.split(';')) {
-      const at = declaration.indexOf(':');
-      if (at < 0) continue;
-      html.style.setProperty(declaration.slice(0, at).trim(), declaration.slice(at + 1).trim());
-    }
-    return;
-  }
-  for (const [name, value] of Object.entries(style ?? {})) {
+  const declarations = document.createElement('div').style;
+  if (typeof style === 'string') declarations.cssText = style.replace(/(-?[\d.]+)rpx/g, 'calc($1 * var(--fmp-rpx))');
+  else for (const [name, value] of Object.entries(style ?? {})) {
     if (value == null) continue;
-    html.style.setProperty(kebab(name), typeof value === 'number' ? `${value}px` : String(value));
+    const key = kebab(name);
+    const text = typeof value === 'number' && !unitless.has(key) ? `${value}px` : String(value);
+    declarations.setProperty(key, text.replace(/(-?[\d.]+)rpx/g, 'calc($1 * var(--fmp-rpx))'));
   }
+  for (const name of Array.from(declarations)) overlay(el).styles.set(name, declarations.getPropertyValue(name));
+  refreshDescriptorAttributes(el);
 }
 
 /** 元素上的描述符；带组件实例的元素额外把这些属性代理到实例上 */
@@ -53,6 +68,7 @@ export function descriptorOf(el: Element, component: any): Descriptor {
   if (existing) return existing;
 
   const own = () => (el as any).__wxComponent ?? component;
+  const classTokens = (name: string) => name.split(/\s+/).filter(Boolean).flatMap(token => [token, ...(own()?.__styleScopes ?? []).map((scope: string) => `${token}--fmp-${scope}`)]);
   const base: Descriptor = {
     selectComponent(selector) {
       const node = selectElements(el, selector)[0];
@@ -62,13 +78,17 @@ export function descriptorOf(el: Element, component: any): Descriptor {
       return selectElements(el, selector).map(node => descriptorOf(node, component));
     },
     setStyle(style) {
-      applyStyle(el, style);
+      if (el.tagName !== 'WX-PAGE') applyStyle(el, style);
     },
     addClass(name) {
-      el.classList.add(name);
+      if (el.tagName === 'WX-PAGE') return;
+      for (const token of classTokens(name)) overlay(el).classes.set(token, true);
+      refreshDescriptorAttributes(el);
     },
     removeClass(name) {
-      el.classList.remove(name);
+      if (el.tagName === 'WX-PAGE') return;
+      for (const token of classTokens(name)) overlay(el).classes.set(token, false);
+      refreshDescriptorAttributes(el);
     },
     hasClass(name) {
       return el.classList.contains(name);
@@ -90,13 +110,18 @@ export function descriptorOf(el: Element, component: any): Descriptor {
     callMethod(name, ...args) {
       const target = own();
       const fn = target?.[name];
-      return typeof fn === 'function' ? fn.apply(target, args) : undefined;
+      if (typeof fn === 'function') {
+        const payload = structuredClone(args);
+        pendingCalls.push(() => { if (!target.__destroyed) invoke(target, fn, payload); });
+        queueMicrotask(flushDescriptorCalls);
+      }
+      return undefined;
     },
     triggerEvent(name, detail, options) {
       own()?.triggerEvent?.(name, detail, options);
     },
     requestAnimationFrame(callback) {
-      return requestAnimationFrame(callback);
+      return requestAnimationFrame(() => { if (!own()?.__destroyed) callback(); });
     }
   };
 

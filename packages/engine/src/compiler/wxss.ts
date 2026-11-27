@@ -84,6 +84,21 @@ export function compileWxss(source: string): string {
 
 function scopeSelector(selector: string, attr: string, value: string): string {
   const marker = `[${attr}="${value}"]`;
+  if (attr === 'fmp-style~') {
+    let quoted = '';
+    let brackets = 0;
+    selector = selector.replace(/(["'[\]])|\.([\w-\u0080-\uFFFF]+)/g, (match, delimiter, name) => {
+      if (delimiter) {
+        if (quoted) {
+          if (delimiter === quoted) quoted = '';
+        } else if (delimiter === '"' || delimiter === "'") quoted = delimiter;
+        else if (delimiter === '[') brackets++;
+        else brackets--;
+        return match;
+      }
+      return !quoted && !brackets ? `.${name}--fmp-${value}` : match;
+    });
+  }
   selector = selector.replace(/:host(?:\(([^)]+)\))?/g, (_match, classes: string | undefined) => `[fmp-host="${value}"]${classes ?? ''}`);
   const compound = (part: string) => {
     if (!part || part.includes('[fmp-host=')) return part;
@@ -128,8 +143,12 @@ function scopeSelector(selector: string, attr: string, value: string): string {
 /** 为样式中的每段复合选择器添加指定作用域 */
 export function scopeWxss(source: string, attr: string, value: string, prefix = ''): string {
   return walkRules(source, (head, body) => {
+    const wrappedPrefix =
+      prefix && attr === 'fmp-style~' && !prefix.trimStart().startsWith(':where(')
+        ? `:where(${prefix.trim()}) `
+        : prefix;
     const selectors = splitSelectors(head)
-      .map(selector => (selector.trim() ? prefix + scopeSelector(selector.trim(), attr, value) : selector))
+      .map(selector => (selector.trim() ? wrappedPrefix + scopeSelector(selector.trim(), attr, value) : selector))
       .join(', ');
     return `${selectors} {${body}}`;
   });

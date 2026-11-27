@@ -266,6 +266,9 @@ export class MediaApi {
     const listeners = new Set<any>();
     let destroyed = false;
     let source = '';
+    let resolvedUrl: string | null = null;
+    let srcReady: Promise<void> | null = null;
+    let wantPlay = false;
     let startTime = 0;
     let hasPlayed = false;
     let playing = false;
@@ -273,6 +276,13 @@ export class MediaApi {
     let referrerPolicy: any;
     const listening = new AbortController();
     const api: any = {};
+
+    const revokeResolved = () => {
+      if (resolvedUrl) {
+        URL.revokeObjectURL(resolvedUrl);
+        resolvedUrl = null;
+      }
+    };
 
     const define = (name: string, get: () => any, set?: (value: any) => void) => {
       Object.defineProperty(api, name, {
@@ -290,9 +300,34 @@ export class MediaApi {
         if (typeof value !== 'string' || !value || value === source) return;
         source = value;
         playing = false;
+        wantPlay = false;
         audio.pause();
         hasPlayed = false;
-        audio.src = value;
+        revokeResolved();
+        if (value.startsWith('wxfile://')) {
+          const current = value;
+          srcReady = blobFromPath(value, listening.signal)
+            .then(blob => {
+              if (destroyed || this.disposed || source !== current) return;
+              srcReady = null;
+              resolvedUrl = URL.createObjectURL(blob);
+              audio.src = resolvedUrl;
+              if (wantPlay) {
+                wantPlay = false;
+                api.play();
+              }
+            })
+            .catch(error => {
+              if (destroyed || this.disposed || source !== current) return;
+              emit('Error', { errMsg: `load:fail ${error?.message ?? error}` });
+            })
+            .finally(() => {
+              if (source === current) srcReady = null;
+            });
+        } else {
+          srcReady = null;
+          audio.src = value;
+        }
       }
     );
     define(
@@ -323,7 +358,10 @@ export class MediaApi {
       'volume',
       () => audio.volume,
       value => {
-        if (typeof value === 'number' && value >= 0 && value <= 1) audio.volume = value;
+        if (typeof value === 'number' && value >= 0 && value <= 1) {
+          audio.volume = value;
+          audio.muted = value === 0;
+        }
       }
     );
     define(
@@ -348,6 +386,10 @@ export class MediaApi {
 
     api.play = () => {
       if (destroyed || this.disposed) return;
+      if (srcReady) {
+        wantPlay = true;
+        return;
+      }
       const promise = audio.play();
       promise?.catch?.(error => {
         if (error?.name === 'AbortError') return;
@@ -356,6 +398,7 @@ export class MediaApi {
     };
     api.pause = () => {
       if (destroyed || this.disposed) return;
+      wantPlay = false;
       const wasPlaying = playing;
       playing = false;
       audio.pause();
@@ -363,6 +406,7 @@ export class MediaApi {
     };
     api.stop = () => {
       if (destroyed || this.disposed) return;
+      wantPlay = false;
       const wasPlaying = playing;
       playing = false;
       audio.pause();
@@ -386,10 +430,12 @@ export class MediaApi {
       if (destroyed) return;
       destroyed = true;
       playing = false;
+      wantPlay = false;
       listening.abort();
       listeners.clear();
       audio.pause();
       audio.removeAttribute('src');
+      revokeResolved();
       audio.load();
       this.innerAudios.delete(api);
     };

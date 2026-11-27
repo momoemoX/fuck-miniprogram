@@ -6,7 +6,7 @@
  */
 
 import { Builder, type ScopeMark } from './builder';
-import { animateIn, clearIn, lastFunction, parseAnimateOptions } from './animate';
+import { animateIn, clearIn, disposeAnimations, lastFunction, parseAnimateOptions } from './animate';
 import { afterRender, parsePath, Store, type Holder } from './store';
 import { cloneData, definitionChain, equalData, mergeData, propertyDefault, propertySpec, propertyValue } from './definition';
 import { attachRelations, detachRelations, reconcileRelations, registerRelations } from './relations';
@@ -294,9 +294,11 @@ export function createComponent(
   (el as any).__wxComponent = instance;
   registerRelations(instance, el, id, def.relations, parentInstance);
 
-  const models = options.models ?? {};
+  let disposed = false;
+  const models = Object.fromEntries(Object.entries(options.models ?? {}).map(([name, write]) => [propertyName(name), write]));
   const lastModel = new Map<string, unknown>();
   const update = (patch: Record<string, any>, callback?: () => void, fromParent = false) => {
+    if (disposed) return;
     patch = Object.fromEntries(
       Object.entries(patch).map(([name, value]) => {
         const path = parsePath(name);
@@ -417,7 +419,6 @@ export function createComponent(
     attachRelations(instance);
   };
 
-  let disposed = false;
   const handle: ComponentHandle = {
     instance,
     store,
@@ -439,6 +440,8 @@ export function createComponent(
     dispose() {
       if (disposed) return;
       disposed = true;
+      instance.__destroyed = true;
+      disposeAnimations(el);
       pendingComponents.delete(instance);
       runHooks(def.hooks.detached, instance);
       for (const cleanup of cleanups.splice(0)) cleanup();

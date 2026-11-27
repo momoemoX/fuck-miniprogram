@@ -12,7 +12,9 @@ import { WxEditor, WxEditorPortal, EDITOR_CSS } from './editor';
 import { WxSelection, SELECTION_CSS } from './selection';
 import { eventResult } from './events';
 import { booleanProperty, boundAttribute } from './attributes';
+import { normalizeSize } from './geometry';
 import { getTempFile } from './api/temp-files';
+import BUILTIN_HOST_CSS from './builtin-hosts.css';
 
 const elementStates = {
   audioReady: new WeakSet<Element>(),
@@ -50,6 +52,8 @@ class WxImage extends HTMLElement {
   static observedAttributes = ['src', 'mode', 'lazy-load'];
   private img = document.createElement('img');
   private bound = false;
+  private resize = new ResizeObserver(() => this.fitHost());
+  private fittedDimension?: { axis: 'width' | 'height'; original: string; applied: string };
 
   connectedCallback() {
     if (!this.img.parentNode) {
@@ -58,8 +62,8 @@ class WxImage extends HTMLElement {
     }
     if (!this.bound) {
       this.bound = true;
-      // 官方 image 的 load / error 事件带图片尺寸或 errMsg
       this.img.addEventListener('load', () => {
+        this.fitHost();
         this.dispatchEvent(
           new CustomEvent('load', {
             bubbles: true,
@@ -78,28 +82,94 @@ class WxImage extends HTMLElement {
         );
       });
     }
+    this.resize.observe(this);
     this.apply();
   }
+
+  disconnectedCallback() { this.resize.disconnect(); }
 
   attributeChangedCallback() {
     this.apply();
   }
 
   private apply() {
+    const mode = this.getAttribute('mode') ?? 'scaleToFill';
+    const axis = mode === 'widthFix' ? 'height' : mode === 'heightFix' ? 'width' : undefined;
+    if (this.fittedDimension && this.fittedDimension.axis !== axis) {
+      const fitted = this.fittedDimension;
+      if (this.style[fitted.axis] === fitted.applied) this.style[fitted.axis] = fitted.original;
+      this.fittedDimension = undefined;
+    }
     const src = this.getAttribute('src') ?? '';
     if (src && this.img.getAttribute('src') !== src) this.img.src = getTempFile(src)?.url ?? src;
-    const mode = this.getAttribute('mode') ?? 'scaleToFill';
     this.img.loading = this.hasAttribute('lazy-load') ? 'lazy' : 'eager';
-    this.img.style.objectFit = IMAGE_FIT[mode] ?? 'fill';
-    if (mode === 'widthFix') {
+    const CROP_MODES = new Set([
+      'top', 'bottom', 'center', 'left', 'right',
+      'top left', 'top right', 'bottom left', 'bottom right'
+    ]);
+    this.img.style.width = '100%';
+    this.img.style.height = '100%';
+    this.img.style.objectPosition = 'center';
+    if (CROP_MODES.has(mode)) {
+      this.img.style.objectFit = 'none';
+      this.img.style.objectPosition = mode;
+    } else if (mode === 'widthFix') {
+      this.img.style.objectFit = 'fill';
       this.img.style.width = '100%';
       this.img.style.height = 'auto';
+    } else if (mode === 'heightFix') {
+      this.img.style.objectFit = 'fill';
+      this.img.style.width = 'auto';
+      this.img.style.height = '100%';
+    } else {
+      this.img.style.objectFit = IMAGE_FIT[mode] ?? 'fill';
     }
+    this.fitHost();
+  }
+
+  private fitHost() {
+    if (!this.isConnected || !this.img.complete || !this.img.naturalWidth || !this.img.naturalHeight) return;
+    const mode = this.getAttribute('mode');
+    if (mode !== 'widthFix' && mode !== 'heightFix') return;
+    const axis = mode === 'widthFix' ? 'height' : 'width';
+    const layout = getComputedStyle(this);
+    const size = axis === 'height'
+      ? parseFloat(layout.width) * this.img.naturalHeight / this.img.naturalWidth
+      : parseFloat(layout.height) * this.img.naturalWidth / this.img.naturalHeight;
+    const applied = `${size}px`;
+    if (!this.fittedDimension) this.fittedDimension = { axis, original: this.style[axis], applied };
+    else if (this.style[axis] !== this.fittedDimension.applied) this.fittedDimension.original = this.style[axis];
+    this.fittedDimension.applied = applied;
+    if (this.style[axis] !== applied) this.style[axis] = applied;
+  }
+}
+
+function applySelection(host: HTMLElement, field: HTMLInputElement | HTMLTextAreaElement) {
+  const cursor = Number(host.getAttribute('cursor') ?? -1);
+  const start = Number(host.getAttribute('selection-start') ?? -1);
+  const end = Number(host.getAttribute('selection-end') ?? -1);
+  try {
+    if (start >= 0 && end >= 0) field.setSelectionRange(start, end);
+    else if (cursor >= 0) field.setSelectionRange(cursor, cursor);
+  } catch {
+    /* Native number/password controls may not expose selection. */
   }
 }
 
 class WxInput extends HTMLElement {
-  static observedAttributes = ['value', 'placeholder', 'password', 'type', 'disabled', 'maxlength', 'focus'];
+  static observedAttributes = [
+    'value',
+    'placeholder',
+    'password',
+    'type',
+    'disabled',
+    'maxlength',
+    'focus',
+    'auto-focus',
+    'cursor',
+    'selection-start',
+    'selection-end'
+  ];
   private input = document.createElement('input');
 
   connectedCallback() {
@@ -108,6 +178,9 @@ class WxInput extends HTMLElement {
       this.input.style.width = '100%';
       this.input.style.height = '100%';
       this.input.style.border = '0';
+      this.input.style.padding = '0';
+      this.input.style.margin = '0';
+      this.input.style.boxSizing = 'border-box';
       this.input.style.outline = 'none';
       this.input.style.background = 'transparent';
       this.input.style.font = 'inherit';
@@ -156,12 +229,27 @@ class WxInput extends HTMLElement {
     this.input.type = this.getAttribute('password') !== null ? 'password' : this.getAttribute('type') || 'text';
     this.input.disabled = this.getAttribute('disabled') !== null;
     maxLength(this.input, this.getAttribute('maxlength'));
-    if (focusChanged && this.getAttribute('focus') !== null) this.input.focus();
+    if (focusChanged) {
+      if (this.hasAttribute('focus') || this.hasAttribute('auto-focus')) this.input.focus();
+      else this.input.blur();
+    }
+    applySelection(this, this.input);
   }
 }
 
 class WxTextarea extends HTMLElement {
-  static observedAttributes = ['value', 'placeholder', 'disabled', 'maxlength', 'auto-height'];
+  static observedAttributes = [
+    'value',
+    'placeholder',
+    'disabled',
+    'maxlength',
+    'auto-height',
+    'focus',
+    'auto-focus',
+    'cursor',
+    'selection-start',
+    'selection-end'
+  ];
   private area = document.createElement('textarea');
 
   get value() {
@@ -172,7 +260,7 @@ class WxTextarea extends HTMLElement {
     const initial = !this.area.parentNode;
     if (initial) {
       this.area.style.cssText =
-        'width:100%;height:100%;border:0;outline:none;background:transparent;font:inherit;color:inherit;resize:none';
+        'position:absolute;width:100%;height:100%;padding:0;border:0;outline:none;background:transparent;font:inherit;line-height:1.2;color:inherit;resize:none';
       this.area.addEventListener('input', event => {
         event.stopPropagation();
         const value = this.emit('input', { value: this.area.value, cursor: this.area.selectionStart ?? this.area.value.length });
@@ -218,17 +306,20 @@ class WxTextarea extends HTMLElement {
     this.area.disabled = this.getAttribute('disabled') !== null;
     maxLength(this.area, this.getAttribute('maxlength'));
     this.resize();
+    if (this.hasAttribute('focus') || this.hasAttribute('auto-focus')) this.area.focus();
+    else if (document.activeElement === this.area) this.area.blur();
+    applySelection(this, this.area);
   }
 }
 
 class WxSwitch extends HTMLElement {
-  static observedAttributes = ['checked', 'disabled', 'color'];
+  static observedAttributes = ['checked', 'disabled', 'color', 'type'];
   private box = document.createElement('input');
 
   connectedCallback() {
     if (!this.box.parentNode) {
       this.box.type = 'checkbox';
-      this.box.style.cssText = 'width:44px;height:26px;accent-color:var(--wx-switch-color, #07c160)';
+      this.box.className = 'fmp-switch-control';
       this.box.addEventListener('change', event => {
         event.stopPropagation();
         this.toggleAttribute('checked', this.box.checked);
@@ -239,53 +330,78 @@ class WxSwitch extends HTMLElement {
     this.apply();
   }
 
-  attributeChangedCallback() {
-    this.apply();
-  }
+  attributeChangedCallback() { this.apply(); }
 
   private apply() {
-    if (!this.box) return;
-    this.box.checked = this.getAttribute('checked') !== null;
-    this.box.disabled = this.getAttribute('disabled') !== null;
-    const color = this.getAttribute('color');
-    if (color) this.style.setProperty('--wx-switch-color', color);
+    this.box.checked = booleanProperty(this, 'checked') ?? false;
+    this.box.disabled = booleanProperty(this, 'disabled') ?? false;
+    const checkbox = this.getAttribute('type') === 'checkbox';
+    this.box.setAttribute('role', checkbox ? 'checkbox' : 'switch');
+    this.box.setAttribute('aria-label', this.getAttribute('aria-label') ?? '');
+    this.style.setProperty('--fmp-switch-color', this.getAttribute('color') || (checkbox ? '#09bb07' : '#07c160'));
   }
 }
 
 class WxSlider extends HTMLElement {
-  static observedAttributes = ['value', 'min', 'max', 'step', 'disabled', 'activecolor'];
+  static observedAttributes = ['value', 'min', 'max', 'step', 'disabled', 'activecolor', 'active-color', 'selected-color', 'color', 'background-color', 'show-value', 'block-size', 'block-color'];
   private range = document.createElement('input');
+  private layout = document.createElement('div');
+  private track = document.createElement('div');
+  private fill = document.createElement('div');
+  private output = document.createElement('output');
 
   connectedCallback() {
     if (!this.range.parentNode) {
+      const row = document.createElement('div');
+      row.className = 'fmp-slider-row';
+      this.layout.className = 'fmp-slider-control';
+      this.track.className = 'fmp-slider-track';
+      this.fill.className = 'fmp-slider-fill';
+      this.track.setAttribute('aria-hidden', 'true');
+      this.track.appendChild(this.fill);
       this.range.type = 'range';
-      this.range.style.width = '100%';
-      this.range.addEventListener('change', event => {
-        event.stopPropagation();
-        this.setAttribute('value', this.range.value);
-        this.dispatchEvent(new CustomEvent('change', { detail: { value: Number(this.range.value) } }));
-      });
-      this.appendChild(this.range);
+      this.range.className = 'fmp-slider-input';
+      this.output.className = 'fmp-slider-value';
+      this.output.setAttribute('aria-live', 'off');
+      for (const [native, type] of [['input', 'changing'], ['change', 'change']]) {
+        this.range.addEventListener(native, event => {
+          event.stopPropagation();
+          this.setAttribute('value', this.range.value);
+          this.dispatchEvent(new CustomEvent(type, { detail: { value: Number(this.range.value) } }));
+        });
+      }
+      this.layout.append(this.track, this.range);
+      row.append(this.layout, this.output);
+      this.appendChild(row);
     }
     this.apply();
   }
 
-  attributeChangedCallback() {
-    this.apply();
-  }
+  attributeChangedCallback() { this.apply(); }
 
   private apply() {
-    if (!this.range) return;
     this.range.min = this.getAttribute('min') ?? '0';
     this.range.max = this.getAttribute('max') ?? '100';
     this.range.step = this.getAttribute('step') ?? '1';
-    const value = this.getAttribute('value');
-    if (value !== null && this.range.value !== value) this.range.value = value;
-    this.range.disabled = this.getAttribute('disabled') !== null;
+    const value = this.getAttribute('value') ?? this.range.min;
+    if (this.range.value !== value) this.range.value = value;
+    const disabled = booleanProperty(this, 'disabled') ?? false;
+    this.range.disabled = disabled;
+    const size = Math.max(12, Math.min(28, Number(this.getAttribute('block-size') ?? 28) || 28));
+    this.layout.style.setProperty('--fmp-slider-size', `${size}px`);
+    this.layout.style.setProperty('--fmp-slider-block-color', this.getAttribute('block-color') || '#fff');
+    const active = this.getAttribute('active-color') || this.getAttribute('activecolor');
+    this.fill.style.backgroundColor = disabled ? '#ccc' : active && active.toLowerCase() !== '#1aad19' ? active : this.getAttribute('selected-color') || active || '#1aad19';
+    this.track.style.backgroundColor = this.getAttribute('background-color') || this.getAttribute('color') || '#e9e9e9';
+    const span = Number(this.range.max) - Number(this.range.min);
+    const progress = span > 0 ? (Number(this.range.value) - Number(this.range.min)) / span : 0;
+    this.fill.style.width = `${Math.max(0, Math.min(1, progress)) * 100}%`;
+    this.output.textContent = this.range.value;
+    this.output.hidden = !(booleanProperty(this, 'showValue') ?? false);
   }
 }
 
-/** devtools 无摄像头：灰底占位 + 「未找到摄像头」，并让页面收到 error，与官方基础库一致 */
+
 class WxCamera extends HTMLElement {
   connectedCallback() {
     if (elementStates.cameraReady.has(this)) return;
@@ -431,9 +547,9 @@ class WxPicker extends HTMLElement {
     showPicker(overlay, {
       title,
       columns: [
-        { values: hours, label: '时', numeric: true, defaultIndex: Math.max(0, hours.indexOf(pad2(current[0] || 0))) },
+        { values: hours, label: '时', defaultIndex: Math.max(0, hours.indexOf(pad2(current[0] || 0))) },
         {
-          label: '分', numeric: true,
+          label: '分',
           values: Array.from({ length: 60 }, (_, minute) => pad2(minute)),
           defaultIndex: Number.isFinite(current[1]) ? current[1] : 0
         }
@@ -460,16 +576,16 @@ class WxPicker extends HTMLElement {
 
     const columns =
       fields === 'year'
-        ? [{ values: years, label: '年', numeric: true, defaultIndex: Math.max(0, years.indexOf(String(year))) }]
+        ? [{ values: years, label: '年', defaultIndex: Math.max(0, years.indexOf(String(year))) }]
         : fields === 'month'
           ? [
-              { values: years, label: '年', numeric: true, defaultIndex: Math.max(0, years.indexOf(String(year))) },
-              { values: months, label: '月', numeric: true, defaultIndex: month - 1 }
+              { values: years, label: '年', defaultIndex: Math.max(0, years.indexOf(String(year))) },
+              { values: months, label: '月', defaultIndex: month - 1 }
             ]
           : [
-              { values: years, label: '年', numeric: true, defaultIndex: Math.max(0, years.indexOf(String(year))) },
-              { values: months, label: '月', numeric: true, defaultIndex: month - 1 },
-              { values: days, label: '日', numeric: true, defaultIndex: day - 1 }
+              { values: years, label: '年', defaultIndex: Math.max(0, years.indexOf(String(year))) },
+              { values: months, label: '月', defaultIndex: month - 1 },
+              { values: days, label: '日', defaultIndex: day - 1 }
             ];
 
     let selectedYear = year, selectedMonth = month;
@@ -486,9 +602,9 @@ class WxPicker extends HTMLElement {
           days = nextDays;
           session.update(
             [
-              { values: years, label: '年', numeric: true, defaultIndex: Math.max(0, years.indexOf(String(nextYear))) },
-              { values: months, label: '月', numeric: true, defaultIndex: nextMonth - 1 },
-              { values: nextDays, label: '日', numeric: true, defaultIndex: 0 }
+              { values: years, label: '年', defaultIndex: Math.max(0, years.indexOf(String(nextYear))) },
+              { values: months, label: '月', defaultIndex: nextMonth - 1 },
+              { values: nextDays, label: '日', defaultIndex: 0 }
             ],
             [Math.max(0, years.indexOf(String(nextYear))), nextMonth - 1, Math.min(session.selectedIndexes()[2] ?? 0, nextDays.length - 1)]
           );
@@ -591,56 +707,96 @@ class WxPicker extends HTMLElement {
 
 /** picker-view：内嵌的多列滚轮，滚动停下后触发 change */
 class WxPickerView extends HTMLElement {
-  static observedAttributes = ['value', 'indicator-style'];
-
+  static observedAttributes = ['value', 'indicator-style', 'indicator-class', 'mask-style', 'mask-class'];
   private timer: ReturnType<typeof setTimeout> | null = null;
+  private columnViews = new Map<HTMLElement, { viewport: HTMLDivElement; indicator: HTMLDivElement; fade: HTMLDivElement }>();
+  private resize = new ResizeObserver(() => this.syncScroll());
 
-  connectedCallback() {
-    if (!elementStates.viewReady.has(this)) {
-      elementStates.viewReady.add(this);
-      this.addEventListener('scroll', () => this.scheduleChange(), true);
-      requestAnimationFrame(() => this.syncScroll());
-    }
+  constructor() {
+    super();
+    const shadow = this.attachShadow({ mode: 'open' });
+    const style = document.createElement('style');
+    style.textContent = '.layout{display:flex;position:relative;overflow:hidden;height:100%;width:100%;contain:size}slot{display:contents}';
+    const layout = document.createElement('div');
+    layout.className = 'layout';
+    const slot = document.createElement('slot');
+    slot.addEventListener('slotchange', () => this.syncScroll());
+    layout.appendChild(slot);
+    shadow.append(style, layout);
   }
 
-  attributeChangedCallback() {
-    requestAnimationFrame(() => this.syncScroll());
-  }
+  connectedCallback() { this.resize.observe(this); requestAnimationFrame(() => this.syncScroll()); }
+  disconnectedCallback() { this.resize.disconnect(); if (this.timer) clearTimeout(this.timer); }
+  attributeChangedCallback() { if (this.isConnected) this.syncScroll(); }
 
   private itemHeight(): number {
-    const style = this.getAttribute('indicator-style') ?? '';
-    const match = /height:\s*([\d.]+)(rpx|px)/.exec(style);
-    if (!match) return 34;
-    const size = Number(match[1]);
-    return match[2] === 'rpx' ? size * parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fmp-rpx') || '0.5') : size;
+    const indicator = this.columnViews.values().next().value?.indicator;
+    return indicator ? parseFloat(getComputedStyle(indicator).height) || 34 : 34;
   }
 
-  private columns(): HTMLElement[] {
-    return Array.from(this.querySelectorAll('wx-picker-view-column')) as HTMLElement[];
+  private decorationStyle(value: string | null) {
+    return (value ?? '').replace(/-?\d+(?:\.\d+)?rpx/g, value => `${normalizeSize(value)}px`);
+  }
+
+  private columns(): HTMLElement[] { return Array.from(this.children).filter(node => node.tagName === 'WX-PICKER-VIEW-COLUMN') as HTMLElement[]; }
+
+  private viewFor(column: HTMLElement) {
+    const previous = this.columnViews.get(column);
+    if (previous) return previous;
+    const shadow = column.shadowRoot ?? column.attachShadow({ mode: 'open' });
+    const style = document.createElement('style');
+    style.textContent = '.viewport{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;scrollbar-width:none;box-sizing:border-box;position:relative}.viewport::-webkit-scrollbar{display:none}slot{display:contents}.rows::slotted(*){height:var(--row-height,34px);scroll-snap-align:center}';
+    const viewport = document.createElement('div');
+    viewport.className = 'viewport';
+    const rows = document.createElement('slot');
+    rows.className = 'rows';
+    viewport.appendChild(rows);
+    viewport.addEventListener('scroll', () => this.scheduleChange());
+    const fade = document.createElement('div');
+    fade.slot = 'fmp-wheel-overlay';
+    const indicator = document.createElement('div');
+    indicator.slot = 'fmp-wheel-overlay';
+    const decorations = document.createElement('slot');
+    decorations.name = 'fmp-wheel-overlay';
+    column.append(fade, indicator);
+    shadow.append(style, viewport, decorations);
+    const view = { viewport, indicator, fade };
+    this.columnViews.set(column, view);
+    return view;
   }
 
   private syncScroll() {
-    const height = this.itemHeight();
-    const values = (jsonAttr(this, 'value', []) as number[]) ?? [];
-    this.columns().forEach((column, index) => {
-      column.style.height = '100%';
-      column.style.overflowY = 'auto';
-      column.style.scrollSnapType = 'y mandatory';
-      column.style.padding = `${height * 2}px 0`;
-      column.style.boxSizing = 'border-box';
-      column.style.scrollbarWidth = 'none';
-      const target = (values[index] ?? 0) * height;
-      if (Math.abs(column.scrollTop - target) > 1) column.scrollTop = target;
+    if (!this.isConnected) return;
+    const values = jsonAttr(this, 'value', []) as number[];
+    const columns = this.columns();
+    for (const [column, view] of this.columnViews) if (!columns.includes(column)) {
+      view.fade.remove();
+      view.indicator.remove();
+      this.columnViews.delete(column);
+    }
+    columns.forEach(column => {
+      const { indicator, fade } = this.viewFor(column);
+      indicator.className = `fmp-wheel-indicator ${this.getAttribute('indicator-class') ?? ''}`;
+      fade.className = `fmp-wheel-fade ${this.getAttribute('mask-class') ?? ''}`;
+      indicator.style.cssText = this.decorationStyle(this.getAttribute('indicator-style'));
+      fade.style.cssText = this.decorationStyle(this.getAttribute('mask-style'));
     });
-    this.style.overflow = 'hidden';
-    this.style.position = 'relative';
+    const height = this.itemHeight();
+    columns.forEach((column, index) => {
+      const { viewport } = this.viewFor(column);
+      column.style.setProperty('--row-height', `${height}px`);
+      viewport.style.paddingBlock = `${Math.max(0, (column.clientHeight - height) / 2)}px`;
+      const target = (values[index] ?? 0) * height;
+      if (Math.abs(viewport.scrollTop - target) > 1) viewport.scrollTop = target;
+    });
   }
 
   private scheduleChange() {
     if (this.timer) clearTimeout(this.timer);
     this.timer = setTimeout(() => {
+      if (!this.isConnected) return;
       const height = this.itemHeight();
-      const value = this.columns().map(column => Math.round(column.scrollTop / height));
+      const value = this.columns().map(column => Math.round(this.viewFor(column).viewport.scrollTop / height));
       this.dispatchEvent(new CustomEvent('change', { detail: { value } }));
     }, 120);
   }
@@ -668,22 +824,22 @@ class FmpAudio extends HTMLElement {
     this.audio.preload = 'metadata';
 
     const card = this.card;
-    card.className = 'wx-audio-default';
+    card.className = 'fmp-audio-default';
     card.setAttribute('role', 'application');
     card.setAttribute('aria-label', '音频播放器');
-    this.left.className = 'wx-audio-left';
-    this.button.className = 'wx-audio-button play';
-    this.button.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="#fff"><path d="M7 4.5v15l13-7.5z"/></svg>';
+    this.left.className = 'fmp-audio-left';
+    this.button.className = 'fmp-audio-button play';
+    this.button.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#b2b2b2" stroke="#fff" stroke-width="2"/><path d="m9 6 9 6-9 6z" fill="#fff"/></svg>';
     this.left.appendChild(this.button);
 
     const right = document.createElement('div');
-    right.className = 'wx-audio-right';
-    this.timeEl.className = 'wx-audio-time';
+    right.className = 'fmp-audio-right';
+    this.timeEl.className = 'fmp-audio-time';
     this.timeEl.textContent = '00:00';
     const info = document.createElement('div');
-    info.className = 'wx-audio-info';
-    this.nameEl.className = 'wx-audio-name';
-    this.authorEl.className = 'wx-audio-author';
+    info.className = 'fmp-audio-info';
+    this.nameEl.className = 'fmp-audio-name';
+    this.authorEl.className = 'fmp-audio-author';
     info.append(this.nameEl, this.authorEl);
     right.append(this.timeEl, info);
 
@@ -705,14 +861,14 @@ class FmpAudio extends HTMLElement {
     this.audio.addEventListener('pause', () => {
       this.button.classList.add('play');
       this.button.classList.remove('pause');
-      this.button.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="#fff"><path d="M7 4.5v15l13-7.5z"/></svg>';
+      this.button.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#b2b2b2" stroke="#fff" stroke-width="2"/><path d="m9 6 9 6-9 6z" fill="#fff"/></svg>';
       this.emit('pause');
     });
     this.audio.addEventListener('timeupdate', () => {
       this.syncTime();
       if (Math.abs(this.audio.currentTime - this.lastPublishedTime) % this.audio.duration >= 1) {
         this.emit('timeupdate', { currentTime: this.audio.currentTime, duration: this.audio.duration });
-        // 3.7.0 的组件以毫秒保存上次值，却以秒比较；差分保留这一历史行为。
+
         this.lastPublishedTime = this.audio.currentTime * 1000;
       }
     });
@@ -794,7 +950,7 @@ class FmpAudio extends HTMLElement {
 
 interface TimedDanmu { text: string; color: string; sent: boolean }
 
-/** 视频播放器：结构与控制条对齐官方基础库（.wx-video-* 类来自它） */
+
 class WxVideo extends HTMLElement {
   static observedAttributes = [
     'src', 'poster', 'controls', 'autoplay', 'loop', 'muted', 'object-fit', 'initial-time', 'enable-danmu', 'danmu-list', 'danmu-btn',
@@ -846,7 +1002,7 @@ class WxVideo extends HTMLElement {
     }
     elementStates.videoReady.add(this);
 
-    this.container.className = 'wx-video-container';
+    this.container.className = 'fmp-video-container';
     this.container.addEventListener('fullscreenchange', event => {
       event.stopPropagation();
       this.onFullscreenChange();
@@ -855,15 +1011,15 @@ class WxVideo extends HTMLElement {
     this.video.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;background:#000';
 
     const bar = this.bar;
-    bar.className = 'wx-video-bar';
+    bar.className = 'fmp-video-bar';
     const controls = document.createElement('div');
-    controls.className = 'wx-video-controls';
+    controls.className = 'fmp-video-controls';
     const wrapper = this.progressWrapper;
-    wrapper.className = 'wx-video-progress-wrapper';
-    this.currentTimeEl.className = 'wx-video-current-time';
+    wrapper.className = 'fmp-video-progress-wrapper';
+    this.currentTimeEl.className = 'fmp-video-current-time';
     this.currentTimeEl.textContent = '00:00';
     const progressContainer = this.progressContainer;
-    progressContainer.className = 'wx-video-progress-container';
+    progressContainer.className = 'fmp-video-progress-container';
     progressContainer.setAttribute('role', 'slider');
     progressContainer.setAttribute('aria-label', '播放进度');
     progressContainer.setAttribute('aria-valuemin', '0');
@@ -878,15 +1034,15 @@ class WxVideo extends HTMLElement {
       event.preventDefault();
       this.seek(Math.max(0, Math.min(this.duration, this.video.currentTime + (event.key === 'ArrowLeft' ? -5 : 5))));
     });
-    this.progressEl.className = 'wx-video-progress';
+    this.progressEl.className = 'fmp-video-progress';
     progressContainer.appendChild(this.progressEl);
-    this.durationEl.className = 'wx-video-duration';
+    this.durationEl.className = 'fmp-video-duration';
     this.durationEl.textContent = '00:00';
     wrapper.append(this.currentTimeEl, progressContainer, this.durationEl);
 
     const fullscreen = this.fullscreenButton;
     fullscreen.type = 'button';
-    fullscreen.className = 'wx-video-control-button wx-video-fullscreen';
+    fullscreen.className = 'fmp-video-control-button fmp-video-fullscreen';
     fullscreen.innerHTML =
       '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.4"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg>';
     fullscreen.addEventListener('click', event => {
@@ -902,19 +1058,19 @@ class WxVideo extends HTMLElement {
     };
     for (const button of [this.playButton, this.centerPlayButton]) {
       button.type = 'button';
-      button.className = 'wx-video-control-button wx-video-play';
+      button.className = 'fmp-video-control-button fmp-video-play';
       button.addEventListener('click', togglePlayback);
     }
-    this.centerPlayButton.classList.add('wx-video-center-play');
+    this.centerPlayButton.classList.add('fmp-video-center-play');
     this.muteButton.type = 'button';
-    this.muteButton.className = 'wx-video-control-button wx-video-mute';
+    this.muteButton.className = 'fmp-video-control-button fmp-video-mute';
     this.muteButton.addEventListener('click', event => {
       event.stopPropagation();
       this.video.muted = !this.video.muted;
       this.syncControls();
     });
     this.danmuButton.type = 'button';
-    this.danmuButton.className = 'wx-video-control-button wx-video-danmu-btn-on';
+    this.danmuButton.className = 'fmp-video-control-button fmp-video-danmu-btn-on';
     this.danmuButton.textContent = '弹';
     this.danmuButton.addEventListener('click', event => {
       event.stopPropagation();
@@ -924,10 +1080,9 @@ class WxVideo extends HTMLElement {
     controls.append(this.playButton, wrapper, this.muteButton, fullscreen);
     bar.appendChild(controls);
 
-    this.overlayEl.className = 'wx-video-slot';
+    this.overlayEl.className = 'fmp-video-slot';
 
-    // slot 放在 container 内部、video 之后：与官方层级一致，cover-view 一定盖在画面上
-    this.danmuLayer.className = 'wx-video-danmu-layer';
+    this.danmuLayer.className = 'fmp-video-danmu-layer';
     this.container.append(this.video, this.danmuLayer, this.centerPlayButton, bar, this.overlayEl);
     this.appendChild(this.container);
 
@@ -1034,7 +1189,7 @@ class WxVideo extends HTMLElement {
     this.syncControls();
   }
 
-  /** 首次播放才真正加载 src：官方初始也是黑屏 + 00:00 控制条 */
+
   private ensureLoaded() {
     if (this.loaded) return;
     const src = this.getAttribute('src');
@@ -1080,7 +1235,7 @@ class WxVideo extends HTMLElement {
 
   private syncDanmuVisibility() {
     this.danmuLayer.style.opacity = this.danmuVisible ? '1' : '0';
-    this.danmuButton.classList.toggle('wx-video-danmu-btn-off', !this.danmuVisible);
+    this.danmuButton.classList.toggle('fmp-video-danmu-btn-off', !this.danmuVisible);
     this.danmuButton.setAttribute('aria-label', this.danmuVisible ? '关闭弹幕' : '打开弹幕');
   }
 
@@ -1098,7 +1253,7 @@ class WxVideo extends HTMLElement {
 
   private renderDanmu(data: { text: string; color?: string }) {
     const node = document.createElement('span');
-    node.className = 'wx-video-danmu-item';
+    node.className = 'fmp-video-danmu-item';
     node.textContent = data.text;
     node.style.cssText = 'position:absolute;left:0;white-space:pre;font-size:16px;line-height:20px;color:white';
     if (data.color) node.style.color = data.color;
@@ -1181,8 +1336,9 @@ class WxVideo extends HTMLElement {
         button.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">${icon}</svg>`;
       }
     }
-    this.playButton.style.display = (booleanProperty(this, 'show-play-btn') ?? true) ? '' : 'none';
-    this.centerPlayButton.style.display = controls && paused && (booleanProperty(this, 'show-center-play-btn') ?? true) ? '' : 'none';
+    const playable = !!this.getAttribute('src');
+    this.playButton.style.display = playable && (booleanProperty(this, 'show-play-btn') ?? true) ? '' : 'none';
+    this.centerPlayButton.style.display = playable && controls && paused && (booleanProperty(this, 'show-center-play-btn') ?? true) ? '' : 'none';
     this.fullscreenButton.style.display = (booleanProperty(this, 'show-fullscreen-btn') ?? true) ? '' : 'none';
     this.fullscreenButton.setAttribute('aria-label', this.fullscreen ? '退出全屏' : '进入全屏');
     this.muteButton.style.display = booleanProperty(this, 'show-mute-btn') ? '' : 'none';
@@ -1321,16 +1477,77 @@ class WxMovableView extends HTMLElement {
 
 /** 轮播：横向 scroll-snap，滚动停下后按页触发 change */
 class WxSwiper extends HTMLElement {
-  static observedAttributes = ['current', 'autoplay', 'interval', 'circular', 'vertical', 'indicator-dots'];
+  static observedAttributes = [
+    'current',
+    'autoplay',
+    'interval',
+    'circular',
+    'vertical',
+    'indicator-dots',
+    'duration',
+    'display-multiple-items',
+    'previous-margin',
+    'next-margin',
+    'indicator-color',
+    'indicator-active-color'
+  ];
 
+  private viewport = document.createElement('div');
+  private surface = document.createElement('div');
+  private extentMarker = document.createElement('div');
+  private resize = new ResizeObserver(() => { this.syncStyle(); this.applyCurrent(false); });
+  private internalCurrent = false;
+  private transitionEpoch = 0;
+  private controlledIndex: number | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private scrollTimer: ReturnType<typeof setTimeout> | null = null;
   private dots: HTMLElement | null = null;
+  private drag?: { id: number; start: number; offset: number };
+
+  constructor() {
+    super();
+    const shadow = this.attachShadow({ mode: 'open' });
+    const style = document.createElement('style');
+    style.textContent = '.surface{position:relative;width:100%;height:100%}.viewport{position:relative;width:100%;height:100%;overflow:auto;scrollbar-width:none}.viewport::-webkit-scrollbar{display:none}slot{display:contents}.dots{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);display:flex;gap:8px;font-size:0;pointer-events:none}.dots.vertical{left:auto;bottom:auto;right:10px;top:50%;transform:translateY(-50%);flex-direction:column;gap:9px}.dot{width:8px;height:8px;border-radius:50%;background:rgba(0,0,0,.3)}';
+    this.surface.className = 'surface';
+    this.viewport.className = 'viewport';
+    this.viewport.addEventListener('pointerdown', event => {
+      if (event.pointerType !== 'mouse' || event.button !== 0) return;
+      const vertical = this.hasAttribute('vertical');
+      this.drag = { id: event.pointerId, start: vertical ? event.clientY : event.clientX, offset: vertical ? this.viewport.scrollTop : this.viewport.scrollLeft };
+      this.viewport.style.scrollSnapType = 'none';
+      this.viewport.setPointerCapture(event.pointerId);
+    });
+    this.viewport.addEventListener('pointermove', event => {
+      if (!this.drag || event.pointerId !== this.drag.id) return;
+      const vertical = this.hasAttribute('vertical');
+      this.viewport[vertical ? 'scrollTop' : 'scrollLeft'] = this.drag.offset + this.drag.start - (vertical ? event.clientY : event.clientX);
+      event.preventDefault();
+    });
+    const endDrag = (event: PointerEvent) => {
+      if (!this.drag || event.pointerId !== this.drag.id) return;
+      this.drag = undefined;
+      const vertical = this.hasAttribute('vertical');
+      const size = this.itemExtent();
+      const offset = vertical ? this.viewport.scrollTop : this.viewport.scrollLeft;
+      this.viewport.style.scrollSnapType = vertical ? 'y mandatory' : 'x mandatory';
+      this.viewport.scrollTo({ [vertical ? 'top' : 'left']: Math.round(offset / size) * size, behavior: 'smooth' });
+      this.syncAutoplay();
+    };
+    this.viewport.addEventListener('pointerup', endDrag);
+    this.viewport.addEventListener('pointercancel', endDrag);
+    const slot = document.createElement('slot');
+    slot.addEventListener('slotchange', () => { this.syncStyle(); this.syncDots(); this.applyCurrent(false); });
+    this.extentMarker.style.cssText = 'position:absolute;width:1px;height:1px;pointer-events:none';
+    this.viewport.append(slot, this.extentMarker);
+    this.surface.appendChild(this.viewport);
+    shadow.append(style, this.surface);
+  }
 
   connectedCallback() {
     if (!elementStates.swiperReady.has(this)) {
       elementStates.swiperReady.add(this);
-      this.addEventListener('scroll', () => {
+      this.viewport.addEventListener('scroll', () => {
         if (this.scrollTimer) clearTimeout(this.scrollTimer);
         this.scrollTimer = setTimeout(() => this.settle(), 120);
       });
@@ -1338,22 +1555,50 @@ class WxSwiper extends HTMLElement {
       this.syncDots();
       requestAnimationFrame(() => this.applyCurrent(false));
     }
+    this.resize.observe(this);
     this.syncAutoplay();
   }
 
   disconnectedCallback() {
+    this.resize.disconnect();
+    this.drag = undefined;
+    this.transitionEpoch++;
+    this.controlledIndex = null;
+    if (this.scrollTimer) clearTimeout(this.scrollTimer);
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
   }
 
-  attributeChangedCallback() {
+  attributeChangedCallback(name: string, previous: string | null, value: string | null) {
     this.syncStyle();
-    if (elementStates.swiperReady.has(this)) this.applyCurrent(false);
+    if (elementStates.swiperReady.has(this)) {
+      const index = Number(value) || 0;
+      if (name === 'current' && previous !== value && !this.internalCurrent && this.items()[index]) {
+        const epoch = ++this.transitionEpoch;
+        this.controlledIndex = index;
+        this.dispatchEvent(new CustomEvent('change', { detail: { current: index, source: '' } }));
+        this.applyCurrent(true);
+        const finish = () => {
+          if (!this.isConnected || epoch !== this.transitionEpoch) return;
+          const target = this.items()[index];
+          if (!target) return;
+          const vertical = this.hasAttribute('vertical');
+          const offset = index * this.itemExtent();
+          const position = vertical ? this.viewport.scrollTop : this.viewport.scrollLeft;
+          if (Math.abs(position - offset) > 1) {
+            requestAnimationFrame(finish);
+            return;
+          }
+          this.controlledIndex = null;
+          this.dispatchEvent(new CustomEvent('animationfinish', { detail: { current: index, source: '' } }));
+        };
+        requestAnimationFrame(finish);
+      } else this.applyCurrent(false);
+    }
     this.syncDots();
     this.syncAutoplay();
   }
 
-  /** indicator-dots：与官方一样浮在底部（竖滑时在右侧） */
   private syncDots() {
     if (!this.hasAttribute('indicator-dots')) {
       this.dots?.remove();
@@ -1362,17 +1607,17 @@ class WxSwiper extends HTMLElement {
     }
     if (!this.dots) {
       this.dots = document.createElement('div');
-      this.dots.className = 'wx-swiper-dots';
-      this.appendChild(this.dots);
+      this.dots.className = 'dots';
+      this.surface.appendChild(this.dots);
     }
-    this.dots.classList.toggle('is-vertical', this.hasAttribute('vertical'));
+    this.dots.classList.toggle('vertical', this.hasAttribute('vertical'));
     const current = Number(this.getAttribute('current') ?? 0) || 0;
     const color = this.getAttribute('indicator-color') ?? 'rgba(0,0,0,.3)';
     const activeColor = this.getAttribute('indicator-active-color') ?? '#000';
     this.dots.replaceChildren(
       ...this.items().map((_, index) => {
         const dot = document.createElement('span');
-        dot.className = 'wx-swiper-dot' + (index === current ? ' is-active' : '');
+        dot.className = 'dot';
         dot.style.background = index === current ? activeColor : color;
         return dot;
       })
@@ -1380,23 +1625,36 @@ class WxSwiper extends HTMLElement {
   }
 
   private items(): HTMLElement[] {
-    return Array.from(this.querySelectorAll('wx-swiper-item')) as HTMLElement[];
+    return Array.from(this.children).filter(node => node.tagName === 'WX-SWIPER-ITEM') as HTMLElement[];
+  }
+
+  private visibleCount() { return Math.max(1, Number(this.getAttribute('display-multiple-items') ?? 1) || 1); }
+
+  private itemExtent() {
+    const length = this.hasAttribute('vertical') ? this.viewport.clientHeight : this.viewport.clientWidth;
+    return Math.max(1, (length - normalizeSize(this.getAttribute('previous-margin') ?? 0) - normalizeSize(this.getAttribute('next-margin') ?? 0)) / this.visibleCount());
   }
 
   private syncStyle() {
     const vertical = this.hasAttribute('vertical');
-    this.style.display = 'flex';
-    this.style.overflow = vertical ? 'auto hidden' : 'hidden auto';
-    this.style.overflowY = vertical ? 'auto' : 'hidden';
-    this.style.overflowX = vertical ? 'hidden' : 'auto';
-    this.style.scrollSnapType = vertical ? 'y mandatory' : 'x mandatory';
-    this.style.flexDirection = vertical ? 'column' : 'row';
-    for (const item of this.items()) {
-      item.style.flex = '0 0 100%';
-      item.style.width = '100%';
-      item.style.height = '100%';
+    this.viewport.style.overflowY = vertical ? 'auto' : 'hidden';
+    this.viewport.style.overflowX = vertical ? 'hidden' : 'auto';
+    this.viewport.style.scrollSnapType = this.drag ? 'none' : vertical ? 'y mandatory' : 'x mandatory';
+    const size = this.itemExtent();
+    const previous = normalizeSize(this.getAttribute('previous-margin') ?? 0);
+    const next = normalizeSize(this.getAttribute('next-margin') ?? 0);
+    this.items().forEach((item, index) => {
+      item.style.width = vertical ? '100%' : `${size}px`;
+      item.style.height = vertical ? `${size}px` : '100%';
+      item.style.left = vertical ? '0' : `${previous + index * size}px`;
+      item.style.top = vertical ? `${previous + index * size}px` : '0';
       item.style.scrollSnapAlign = 'start';
-    }
+      item.style.scrollMarginLeft = vertical ? '0' : `${previous}px`;
+      item.style.scrollMarginTop = vertical ? `${previous}px` : '0';
+    });
+    const end = Math.max(0, previous + this.items().length * size + next - 1);
+    this.extentMarker.style.left = vertical ? '0' : `${end}px`;
+    this.extentMarker.style.top = vertical ? `${end}px` : '0';
   }
 
   private applyCurrent(smooth = true) {
@@ -1404,16 +1662,19 @@ class WxSwiper extends HTMLElement {
     const target = this.items()[index];
     if (!target) return;
     const vertical = this.hasAttribute('vertical');
-    this.scrollTo({ [vertical ? 'top' : 'left']: vertical ? target.offsetTop : target.offsetLeft, behavior: smooth ? 'smooth' : 'auto' });
+    this.viewport.scrollTo({ [vertical ? 'top' : 'left']: index * this.itemExtent(), behavior: smooth ? 'smooth' : 'auto' });
   }
 
   private settle() {
     const vertical = this.hasAttribute('vertical');
-    const size = vertical ? this.clientHeight : this.clientWidth;
+    const size = this.itemExtent();
     if (!size) return;
-    const index = Math.round((vertical ? this.scrollTop : this.scrollLeft) / size);
+    const index = Math.round((vertical ? this.viewport.scrollTop : this.viewport.scrollLeft) / size);
+    if (this.controlledIndex !== null) return;
     if (String(index) === this.getAttribute('current')) return;
+    this.internalCurrent = true;
     this.setAttribute('current', String(index));
+    this.internalCurrent = false;
     this.dispatchEvent(new CustomEvent('change', { detail: { current: index, source: 'touch' } }));
     this.syncDots();
     this.dispatchEvent(new CustomEvent('animationfinish', { detail: { current: index, source: 'touch' } }));
@@ -1432,7 +1693,9 @@ class WxSwiper extends HTMLElement {
       const current = Number(this.getAttribute('current') ?? 0) || 0;
       const next = current + 1 >= total ? (this.hasAttribute('circular') ? 0 : current) : current + 1;
       if (next === current) return;
+      this.internalCurrent = true;
       this.setAttribute('current', String(next));
+      this.internalCurrent = false;
       this.applyCurrent(true);
       this.syncDots();
       this.dispatchEvent(new CustomEvent('change', { detail: { current: next, source: 'autoplay' } }));
@@ -1441,7 +1704,7 @@ class WxSwiper extends HTMLElement {
   }
 }
 
-/** 地图：占位底图 + 版权条；真实瓦片需要地图服务，这里只还原外观骨架 */
+
 class WxCanvas extends HTMLElement {
   private canvas = document.createElement('canvas');
 
@@ -1547,38 +1810,34 @@ export const NATIVE_CSS =
   SELECTION_CSS +
   EDITOR_CSS +
   `
-wx-audio { display: block; }
-.wx-audio-default { display: flex; width: 100%; height: 67px; border: 1px solid #e0e0e0; border-radius: 2.5px; background: #fcfcfc; box-sizing: border-box; overflow: hidden; }
-.wx-audio-left { position: relative; flex: none; width: 65px; height: 65px; background: #e6e6e6 center / 100% 100% no-repeat; }
-.wx-audio-button { position: absolute; left: 50%; top: 50%; width: 24px; height: 24px; margin: -12px 0 0 -12px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-.wx-audio-right { position: relative; flex: 1; min-width: 0; padding: 11px 16.5px 13.5px 15px; box-sizing: border-box; }
-.wx-audio-time { position: absolute; right: 16.5px; top: 11px; font-size: 12px; color: #888; }
-.wx-audio-info { padding-top: 11px; }
-.wx-audio-name { font-size: 14px; color: #353535; line-height: 23px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.wx-audio-author { font-size: 12px; color: #888; line-height: 15px; }
-/* 官方 wx-video 是 inline-block，底部因此有一点点基线间隙，块级化会改变后续元素位置 */
-wx-video { display: inline-block; position: relative; overflow: hidden; width: 300px; height: 225px; }
-.wx-video-container { position: absolute; inset: 0; background: #000; overflow: hidden; }
-.wx-video-slot { position: absolute; inset: 0; pointer-events: none; }
-.wx-video-slot > * { pointer-events: auto; }
-.wx-video-danmu-layer { position: absolute; inset: 0; margin-bottom: 60px; overflow: hidden; pointer-events: none; }
-.wx-video-bar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; height: 48px; padding: 0 16px; box-sizing: border-box; }
-.wx-video-controls { display: flex; align-items: center; justify-content: space-between; flex: 1; height: 38px; min-width: 0; }
-.wx-video-progress-wrapper { flex: 1; display: flex; align-items: center; height: 38px; min-width: 0; }
-.wx-video-current-time, .wx-video-duration { font-size: 14px; line-height: 24px; color: rgba(255,255,255,.5); white-space: nowrap; }
-.wx-video-progress-container { flex: 1; display: flex; align-items: center; height: 38px; margin: 0 8px; min-width: 0; cursor: pointer; }
-.wx-video-progress { width: 100%; height: 4px; border-radius: 20px; background: rgba(217,217,217,.1); }
-.wx-video-control-button { display: flex; flex: none; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; border: 0; color: #fff; background: rgba(255,255,255,.5); cursor: pointer; }
-.wx-video-center-play { position: absolute; left: 50%; top: 50%; z-index: 1; transform: translate(-50%, -50%); border-radius: 50%; width: 48px; height: 48px; background: rgba(0,0,0,.5); }
-wx-movable-area { position: relative; display: block; overflow: hidden; }
-wx-movable-view { position: absolute; display: block; }
-wx-swiper { position: relative; display: flex; }
-wx-swiper-item { display: block; position: relative; overflow: hidden; }
-.wx-swiper-dots { position: absolute; left: 0; right: 0; bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 4px; pointer-events: none; z-index: 2; }
-.wx-swiper-dots.is-vertical { left: auto; right: 8px; top: 0; bottom: 0; flex-direction: column; }
-.wx-swiper-dot { width: 6px; height: 6px; border-radius: 3px; background: rgba(0,0,0,.3); transition: width .2s; }
-.wx-swiper-dot.is-active { width: 12px; }
-wx-map { position: relative; overflow: hidden; width: 300px; height: 150px; background: #f5f5f5; }
+wx-audio { display: inline-block; line-height: 0; }
+.fmp-audio-default { display: flex; width: 304px; height: 67px; border: 1px solid #e0e0e0; border-radius: 2.5px; background: #fcfcfc; box-sizing: border-box; overflow: hidden; line-height: normal; }
+.fmp-audio-left { position: relative; flex: none; width: 65px; height: 65px; background: #e6e6e6 center / 100% 100% no-repeat; }
+.fmp-audio-button { position: absolute; left: 50%; top: 50%; width: 24px; height: 24px; margin: -12px 0 0 -12px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.fmp-audio-right { position: relative; flex: 1; min-width: 0; padding: 11px 16.5px 13.5px 15px; box-sizing: border-box; }
+.fmp-audio-time { position: absolute; right: 16.5px; top: 11px; font-size: 12px; color: #888; }
+.fmp-audio-info { padding-top: 0; }
+.fmp-audio-name { font-size: 14px; color: #353535; line-height: 23px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.fmp-audio-author { font-size: 12px; color: #888; line-height: 15px; }
+wx-video { display: inline-block; position: relative; overflow: hidden; width: 300px; height: 225px; line-height: 0; }
+.fmp-video-container { position: absolute; inset: 0; background: #000; overflow: hidden; }
+.fmp-video-slot { position: absolute; inset: 0; pointer-events: none; }
+.fmp-video-slot > * { pointer-events: auto; }
+.fmp-video-danmu-layer { position: absolute; inset: 0; margin-bottom: 60px; overflow: hidden; pointer-events: none; }
+.fmp-video-bar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; height: 48px; padding: 0 16px; box-sizing: border-box; }
+.fmp-video-controls { display: flex; align-items: center; justify-content: space-between; flex: 1; height: 38px; min-width: 0; }
+.fmp-video-progress-wrapper { flex: 1; display: flex; align-items: center; height: 38px; min-width: 0; }
+.fmp-video-current-time, .fmp-video-duration { font-size: 14px; line-height: 24px; color: rgba(255,255,255,.5); white-space: nowrap; }
+.fmp-video-progress-container { flex: 1; display: flex; align-items: center; height: 38px; margin: 0 8px; min-width: 0; cursor: pointer; }
+.fmp-video-progress { position: relative; width: 100%; height: 4px; border-radius: 20px; background: rgba(217,217,217,.1); }
+.fmp-video-progress::after { content: ''; position: absolute; left: calc(var(--fmp-video-progress, 0) * 100%); top: 50%; width: 8px; height: 8px; border-radius: 50%; background: #fff; transform: translate(-50%, -50%); }
+.fmp-video-control-button { display: flex; flex: none; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; border: 0; color: rgba(255,255,255,.5); background: transparent; cursor: pointer; }
+.fmp-video-center-play { position: absolute; left: 50%; top: 50%; z-index: 1; transform: translate(-50%, -50%); border-radius: 50%; width: 48px; height: 48px; background: rgba(0,0,0,.5); }
+wx-movable-area { position: relative; display: block; width: 10px; height: 10px; overflow: visible; }
+wx-movable-view { position: absolute; display: block; width: 10px; height: 10px; }
+wx-swiper { display: block; height: 150px; }
+wx-swiper-item { display: block; position: absolute; width: 100%; height: 100%; overflow: hidden; }
+wx-map { position: relative; overflow: visible; width: 300px; height: 150px; background: transparent; }
 .wx-map-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 .wx-map-attr { position: absolute; left: 8px; bottom: 6px; z-index: 1; pointer-events: none; display: flex; align-items: center; gap: 4px; font-size: 10px; color: #8a8a8a; }
 .wx-map-logo { padding: 1px 4px; border-radius: 2px; background: #1a8cff; color: #fff; font-size: 10px; }
@@ -1586,35 +1845,71 @@ wx-camera { position: relative; overflow: hidden; background: #808080; }
 .wx-camera-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,.85); font-size: 14px; }
 wx-page { display: block; position: absolute; inset: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; font-family: initial; font-size: 16px; }
 wx-custom-tab-bar { font-family: initial; font-size: 16px; }
-wx-view, wx-form, wx-picker, wx-picker-view, wx-picker-view-column, wx-radio-group, wx-checkbox-group,
-wx-custom-tab-bar, wx-movable-area, wx-movable-view, wx-map, wx-camera, wx-audio,
-wx-canvas, wx-web-view, wx-editor, wx-cover-view, wx-scroll-view { display: block; }
+wx-view, wx-picker, wx-picker-view, wx-picker-view-column, wx-radio-group, wx-checkbox-group,
+wx-custom-tab-bar, wx-movable-area, wx-movable-view, wx-map, wx-camera,
+wx-web-view, wx-editor, wx-cover-view, wx-scroll-view { display: block; }
+wx-picker-view-column { position: relative; overflow: hidden; height: 100%; flex: 1; z-index: 0; min-width: 0; contain: size; }
+.fmp-wheel-indicator { position: absolute; height: 34px; top: 50%; left: 0; right: 0; transform: translateY(-50%); pointer-events: none; box-sizing: border-box; border-block: 1px solid #e5e5e5; }
+.fmp-wheel-fade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(#fff, transparent 45%, transparent 55%, #fff); }
+wx-form { display: inline; }
+wx-canvas { display: none; position: relative; }
+wx-canvas[canvas-id], wx-canvas[type] { display: block; width: 300px; height: 150px; }
 wx-text, wx-label { display: inline; }
-wx-scroll-view { overflow: hidden; -webkit-overflow-scrolling: touch; }
+wx-scroll-view { -webkit-overflow-scrolling: touch; }
 wx-scroll-view[scroll-y] { overflow-y: auto; }
 wx-scroll-view[scroll-x] { overflow-x: auto; }
 wx-scroll-view[scroll-y][scroll-x] { overflow: auto; }
-wx-image { display: inline-block; overflow: hidden; }
+wx-image { display: inline-block; overflow: hidden; width: 320px; height: 240px; }
 wx-image > img { width: 100%; height: 100%; display: block; }
-wx-input, wx-textarea { display: block; }
-wx-navigator { display: inline-block; }
+wx-input { display: block; height: 22.4px; min-height: 22.4px; overflow: hidden; white-space: nowrap; }
+wx-textarea { display: block; width: 300px; height: 150px; position: relative; overflow: hidden; }
+wx-editor { display: block; position: relative; box-sizing: border-box; height: 200px; overflow: hidden; }
+wx-slider { display: block; margin: 10px 18px; height: 18px; }
+wx-switch { display: inline-block; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.fmp-switch-control { appearance: none; -webkit-appearance: none; display: inline-block; vertical-align: middle; width: 52px; height: 32px; margin: 0 5px 0 0; padding: 0; box-sizing: border-box; border: 2px solid transparent; border-radius: 16px; outline: 0; position: relative; background: rgba(0,0,0,.1); cursor: inherit; transition: background-color .1s,border-color .1s; }
+.fmp-switch-control::after { content: ''; position: absolute; top: 0; left: 0; width: 28px; height: 28px; border-radius: 50%; background: #fff; box-shadow: 0 2px 3px rgba(0,0,0,.06); transition: transform .3s; }
+.fmp-switch-control:checked { background: var(--fmp-switch-color); border-color: var(--fmp-switch-color); }
+.fmp-switch-control:checked::after { transform: translateX(20px); }
+.fmp-switch-control:disabled { opacity: .3; cursor: default; }
+wx-switch[type="checkbox"] .fmp-switch-control { width: 24px; height: 24px; border: 1px solid #d1d1d1; border-radius: 3px; background: #fff; color: var(--fmp-switch-color); }
+wx-switch[type="checkbox"] .fmp-switch-control::after { display: none; }
+wx-switch[type="checkbox"] .fmp-switch-control:checked::after { display: block; width: 6px; height: 11px; top: 3px; left: 7px; border-radius: 0; border: solid currentColor; border-width: 0 2px 2px 0; background: transparent; box-shadow: none; transform: rotate(45deg); }
+wx-switch[type="checkbox"] .fmp-switch-control:disabled { opacity: 1; background: #e1e1e1; color: #adadad; }
+.fmp-switch-control:focus-visible { outline: 2px solid #576b95; outline-offset: 2px; }
+.fmp-slider-row { display: flex; align-items: center; min-height: 16px; }
+.fmp-slider-control { flex: 1; min-width: 0; height: 18px; position: relative; --fmp-slider-size: 28px; --fmp-slider-block-color: #fff; }
+.fmp-slider-track { position: absolute; top: 8px; left: 0; right: 0; height: 2px; border-radius: 5px; background: #e9e9e9; }
+.fmp-slider-fill { height: 100%; border-radius: 6px; background: #1aad19; }
+.fmp-slider-input { appearance: none; -webkit-appearance: none; display: block; position: absolute; left: calc(var(--fmp-slider-size) * -.5); top: 0; width: calc(100% + var(--fmp-slider-size)); height: 18px; margin: 0; padding: 0; border: 0; outline: 0; background: transparent; cursor: pointer; }
+.fmp-slider-input::-webkit-slider-runnable-track { height: 2px; background: transparent; }
+.fmp-slider-input::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: var(--fmp-slider-size); height: var(--fmp-slider-size); margin-top: calc((2px - var(--fmp-slider-size)) / 2); border: 0; border-radius: 50%; background: var(--fmp-slider-block-color); box-shadow: 0 0 4px rgba(0,0,0,.2); }
+.fmp-slider-input::-moz-range-track { height: 2px; background: transparent; }
+.fmp-slider-input::-moz-range-thumb { width: var(--fmp-slider-size); height: var(--fmp-slider-size); border: 0; border-radius: 50%; background: var(--fmp-slider-block-color); box-shadow: 0 0 4px rgba(0,0,0,.2); }
+.fmp-slider-input:disabled { cursor: default; }
+.fmp-slider-input:focus-visible { outline: 2px solid #576b95; outline-offset: 3px; }
+.fmp-slider-value { flex: none; color: #888; font-size: 14px; margin-left: 1em; text-align: center; }
+[hidden] { display: none !important; }
+wx-navigator { display: block; }
 wx-web-view { height: 100%; }
 wx-button {
   display: block; position: relative; box-sizing: border-box; margin: 0 auto;
   width: 184px; padding: 8px 24px; min-height: 40px; line-height: 24px;
-  font-size: 17px; font-weight: 400;
+  font-size: 17px; font-weight: 700;
   text-align: center; text-decoration: none; border-radius: 4px; overflow: hidden;
   color: #000; background: #f8f8f8; border: 0;
   -webkit-tap-highlight-color: transparent; cursor: pointer;
 }
 wx-button::after { content: ''; position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity .15s; pointer-events: none; }
 wx-button:active::after { opacity: .1; }
-/* size=mini 不再固定宽度，宽度由内容决定（在 flex 容器里就是 flex item 的内容宽） */
-/* margin 不在这里写死：页面里的 .btns button 规则要能覆盖它 */
-wx-button[size="mini"] { width: auto; min-height: 32px; padding: 0 14px; line-height: 32px; font-size: 16px; }
+wx-button[size="mini"] { display: inline-block; width: auto; min-height: 32px; padding: 0 12px; line-height: 32px; font-size: 16px; }
+wx-button[type="default"] { background: #f2f2f2; color: #06ae56; }
 wx-button[type="primary"] { background: #07c160; color: #fff; }
 wx-button[type="warn"] { background: #f2f2f2; color: #fa5151; }
-wx-button[type="primary"][disabled], wx-button[type="warn"][disabled] { background: #fafafa; color: rgba(0,0,0,.18); }
+wx-button[plain] { background: transparent; color: #353535; border: 1px solid #353535; }
+wx-button[type="primary"][plain] { background: transparent; color: #07c160; border: 1px solid #07c160; }
+wx-button[type="warn"][plain] { background: transparent; color: #fa5151; border: 1px solid #fa5151; }
+wx-button[type="primary"][disabled], wx-button[type="warn"][disabled], wx-button[type="default"][disabled] { background: #fafafa; color: rgba(0,0,0,.18); }
 wx-button[disabled] { background: #fafafa; color: rgba(0,0,0,.18); cursor: default; }
 ${CONTROL_CSS}
+${BUILTIN_HOST_CSS}
 `;

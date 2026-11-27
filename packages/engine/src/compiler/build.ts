@@ -409,6 +409,7 @@ export async function buildProject(projectDir: string, outDir: string): Promise<
     subpackages: subpackages.map(pkg => ({ root: pkg.root, pages: pkg.pages ?? [], independent: !!pkg.independent })),
     networkTimeout: app.networkTimeout ?? {},
     resolveAlias: app.resolveAlias ?? {},
+    lazyCodeLoading: app.lazyCodeLoading,
     requiredPrivateInfos: app.requiredPrivateInfos ?? [],
     permission: app.permission ?? {},
     workers: workerPaths,

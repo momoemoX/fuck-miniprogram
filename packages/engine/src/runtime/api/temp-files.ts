@@ -10,6 +10,7 @@ export interface TempFile {
   path: string;
   url: string;
   blob: Blob;
+  bytes?: Uint8Array<ArrayBuffer>;
   size: number;
   type: string;
   name?: string;
@@ -25,7 +26,7 @@ export function setPathResolver(fn: (path: string) => Blob | undefined) {
   resolvePath = fn;
 }
 
-export function addTempFile(blob: Blob, name?: string, type?: string): TempFile {
+export function addTempFile(blob: Blob, name?: string, type?: string, bytes?: Uint8Array<ArrayBuffer>): TempFile {
   const url = URL.createObjectURL(blob);
   const extension = name?.match(/\.[a-z0-9]+$/i)?.[0] ?? '';
   const path = `wxfile://tmp/${uid()}${extension}`;
@@ -33,6 +34,7 @@ export function addTempFile(blob: Blob, name?: string, type?: string): TempFile 
     path,
     url,
     blob,
+    bytes,
     size: blob.size,
     type: type || blob.type || '',
     name,
@@ -49,7 +51,7 @@ export function fromDataUrl(dataUrl: string, name?: string): TempFile {
   const binary = match[2] ? atob(match[3]) : decodeURIComponent(match[3]);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return addTempFile(new Blob([bytes], { type }), name, type);
+  return addTempFile(new Blob([bytes], { type }), name, type, bytes);
 }
 
 export function getTempFile(path: string): TempFile | undefined {

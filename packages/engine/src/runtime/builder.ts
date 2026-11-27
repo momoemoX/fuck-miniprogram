@@ -30,7 +30,9 @@ import {
 } from './events';
 import { SlotProjection, slotProjections } from './slots';
 import { notifyComponentMoves } from './relations';
-import { descriptorOf } from './wxs-descriptor';
+import { classNames } from './styles';
+import { cloneData, equalData } from './definition';
+import { descriptorOf, flushDescriptorCalls, refreshDescriptorAttributes } from './wxs-descriptor';
 import { Holder, KEY_MARK, Store, type Scope } from './store';
 
 interface CondBranch {
@@ -51,6 +53,7 @@ interface ListOptions {
 }
 
 interface PropSpec {
+  model?: string | null;
   deps: string[][];
   get: (scope: Scope) => unknown;
 }
@@ -132,6 +135,7 @@ export class Builder {
   private holders: Holder[] = [];
   private wxs: Record<string, any> = {};
   private classNodes = new WeakSet<Element>();
+  private templateDepth = 0;
   private projections = new WeakMap<RenderParent, SlotProjection>();
   private moduleCache: ModuleCache = new Map();
 
@@ -162,12 +166,14 @@ export class Builder {
     this.current().scope.wxs = this.wxsModules(modules);
   }
 
-  callTemplate(template: object, build: () => void) {
-    const scope = this.current().scope;
-    const templates: Set<object> = scope.templates ?? new Set();
-    if (templates.has(template)) return;
-    scope.templates = new Set([...templates, template]);
-    build();
+  callTemplate(_template: object, build: () => void) {
+    if (this.templateDepth >= 256) throw new RangeError('template recursion limit exceeded');
+    this.templateDepth++;
+    try {
+      build();
+    } finally {
+      this.templateDepth--;
+    }
   }
 
   scopeWxs(parent: RenderParent, modules: Record<string, string>, build: (host: RenderParent) => void) {
@@ -290,7 +296,8 @@ export class Builder {
         this.classNodes.add(el);
         this.current().onDispose(() => this.instance.__forgetClasses?.(el));
       }
-    } else el.setAttribute('class', text);
+    } else el.setAttribute('class', classNames(this.instance, text).join(' '));
+    refreshDescriptorAttributes(el);
   }
 
   attr(el: Element, name: string, deps: string[][], fn: (scope: Scope) => unknown) {
@@ -329,6 +336,7 @@ export class Builder {
     }
     setBoundAttribute(el, name, value, text);
     el.setAttribute(name, text);
+    if (name === 'style') refreshDescriptorAttributes(el);
   }
 
   on(
@@ -349,9 +357,13 @@ export class Builder {
         if (event.touches == null) event.touches = event.detail?.touches;
         if (event.changedTouches == null) event.changedTouches = event.detail?.changedTouches;
         const result = resolved(event, descriptorOf(this.instance?.__el ?? el, this.instance));
-        if (result === false) native?.stopPropagation();
+        if (result === false) {
+          native?.stopPropagation();
+          native?.preventDefault();
+        }
         return result;
       }
+      if (native) flushDescriptorCalls();
       const fn = typeof resolved === 'string' ? this.instance?.[resolved] : null;
       return callCallback(this.instance, fn, [event]);
     };
@@ -390,9 +402,14 @@ export class Builder {
    * `model:value="{{field}}"`（原生组件）：属性照常下发，用户输入再写回数据。
    * 官方只支持单一数据字段，复杂表达式没有可回写的路径。
    */
+  private writeModel(path: string[], value: unknown) {
+    if (this.instance?.setData) this.instance.setData({ [path[0]]: value });
+    else this.store.setByPath(path, value);
+  }
+
   model(el: Element, name: string, spec: PropSpec) {
     const holder = this.current();
-    const path = this.absolute(spec.deps[0] ?? []);
+    const path = spec.model ? [spec.model] : [];
     if (spec.deps.length) {
       this.store.register(
         spec.deps.map(dep => this.absolute(dep)),
@@ -406,7 +423,7 @@ export class Builder {
     const write = (event: Event) => {
       const detail = (event as CustomEvent).detail;
       const value = detail && 'value' in detail ? detail.value : (el as any).value;
-      this.store.setByPath(path, value);
+      this.writeModel(path, value);
     };
     // input 覆盖 input / textarea，change 覆盖 picker / slider / switch / checkbox
     el.addEventListener('input', write);
@@ -442,10 +459,13 @@ export class Builder {
     const capture = () => {
       if (!started) return;
       const value = spec.get(holder.scope);
-      if (Object.is(value, last)) return;
+      const isObj = value !== null && typeof value === 'object';
+      if (!isObj && Object.is(value, last)) return;
+      if (isObj && equalData(value, last)) return;
+      const snap = isObj ? cloneData(value) : value;
       const previous = last;
-      last = value;
-      queue.push([value, previous]);
+      last = snap;
+      queue.push([snap, previous]);
     };
 
     const run = () => {
@@ -454,11 +474,13 @@ export class Builder {
         for (const [value, previous] of items) deliver(value, previous);
       }
       const value = spec.get(holder.scope);
-      if (started && Object.is(value, last)) return;
+      const isObj = value !== null && typeof value === 'object';
+      if (started && (!isObj ? Object.is(value, last) : equalData(value, last))) return;
+      const snap = isObj ? cloneData(value) : value;
       const previous = started ? last : undefined;
       started = true;
-      last = value;
-      deliver(value, previous);
+      last = snap;
+      deliver(snap, previous);
     };
 
     this.store.onCommit(capture, holder);
@@ -491,9 +513,9 @@ export class Builder {
     // model:<prop>：子组件 setData 该属性时回写到父级数据路径
     const writers: Record<string, (value: unknown) => void> = {};
     for (const [prop, spec] of Object.entries(models)) {
-      const path = this.absolute(spec.deps[0] ?? []);
+      const path = spec.model ? [spec.model] : [];
       if (!path.length) continue;
-      writers[prop] = value => this.store.setByPath(path, value);
+      writers[prop] = value => this.writeModel(path, value);
     }
 
     const handle = this.context.mount(el, id, this.instance, events, evaluate(), { models: writers });

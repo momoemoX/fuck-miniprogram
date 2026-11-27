@@ -147,15 +147,19 @@ let uninstall: (() => void) | undefined;
 let suppressClickUntil = 0;
 
 /** 记录所有按下的触点，touches 要包含多指 */
+const cancelledMoves = new WeakSet<Element>();
 const active = new Map<number, { touch: WxTouch; target: Element; root: Element | null }>();
 
 function dispatch(target: Element, type: string, source: Event, changed: WxTouch[], detail: Record<string, unknown>) {
-  const event = new CustomEvent(type, { bubbles: true, composed: true, detail });
+  const event = new CustomEvent(type, { bubbles: true, composed: true, cancelable: true, detail });
   const touches = Array.from(active.values()).map(item => item.touch);
   Object.defineProperty(event, 'touches', { value: touches, configurable: true });
   Object.defineProperty(event, 'changedTouches', { value: changed, configurable: true });
   Object.defineProperty(event, 'timeStamp', { value: source.timeStamp, configurable: true });
   target.dispatchEvent(event);
+  if (type === 'wx-touchstart') cancelledMoves.delete(target);
+  if (event.defaultPrevented) { source.preventDefault(); return false; }
+  return true;
 }
 
 /** 把 click / contextmenu 补成小程序事件对象：detail {x,y} + touches/changedTouches */
@@ -252,7 +256,10 @@ export function installGestureLayer(getRoot: () => Element | null) {
       }
     }
 
-    dispatch(record.target, 'wx-touchmove', event, [touch], {});
+    if (!dispatch(record.target, 'wx-touchmove', event, [touch], {})) {
+      cancelledMoves.add(record.target);
+      return;
+    }
     if (event.pointerType === 'mouse' && press?.mouseStarted && press.id === event.pointerId && !isCaught(record.target, 'touchmove')) {
       if (press.scroller === undefined) {
         press.scroller = findScroller(record.target, dx, dy);
@@ -312,13 +319,13 @@ export function installGestureLayer(getRoot: () => Element | null) {
 
   // capture 阶段监听：页面里的 stopPropagation 不会打断手势状态机
   document.addEventListener('pointerdown', onDown, true);
-  document.addEventListener('pointermove', onMove, { capture: true, passive: true });
+  document.addEventListener('pointermove', onMove, { capture: true, passive: false });
   document.addEventListener('pointerup', onUp, true);
   document.addEventListener('pointercancel', onCancel, true);
 
   // catchtouchmove：阻止页面滚动（需要非 passive 才能 preventDefault）
   const onTouchMove = (event: TouchEvent) => {
-    if (isCaught(event.target, 'touchmove')) event.preventDefault();
+    if (isCaught(event.target, 'touchmove') || cancelledMoves.has(event.target as Element)) event.preventDefault();
   };
   document.addEventListener('touchmove', onTouchMove, { capture: true, passive: false });
 

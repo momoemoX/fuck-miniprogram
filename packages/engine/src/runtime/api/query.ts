@@ -228,9 +228,111 @@ export class Query {
     const scope = component?.__el ?? page;
     const thresholds = Array.isArray(options?.thresholds) && options.thresholds.length ? options.thresholds : [0];
     let root: Element | null = page;
+    let marginsSpec: { top: number; right: number; bottom: number; left: number } = { top: 0, right: 0, bottom: 0, left: 0 };
     let rootMargin = '0px';
-    const observed = new Map<Element, { initial: boolean; callback: (result: any) => void }>();
+    const observed = new Map<Element, { initial: boolean; prevRatio: number; callback: (result: any) => void }>();
     let observer: IntersectionObserver | null = null;
+    let rafId: number | null = null;
+    let useGeometry = false;
+
+    const parseMargin = (input: any): number => {
+      if (typeof input === 'number') return Number.isFinite(input) ? input : 0;
+      const n = parseFloat(String(input ?? '0'));
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const relativeRect = (rect: { left: number; top: number; right: number; bottom: number; width: number; height: number }) => {
+      const base = page?.getBoundingClientRect();
+      return {
+        left: rect.left - (base?.left ?? 0),
+        top: rect.top - (base?.top ?? 0),
+        right: rect.right - (base?.left ?? 0),
+        bottom: rect.bottom - (base?.top ?? 0),
+        width: rect.width,
+        height: rect.height,
+        x: rect.left - (base?.left ?? 0),
+        y: rect.top - (base?.top ?? 0)
+      };
+    };
+
+    const crossedThreshold = (prev: number, next: number): boolean => {
+      if (prev === next) return false;
+      const lo = Math.min(prev, next);
+      const hi = Math.max(prev, next);
+      for (const t of thresholds) {
+        if (t === 0) {
+          if ((prev === 0 && next > 0) || (prev > 0 && next === 0)) return true;
+        } else if (t === 1) {
+          if ((prev < 1 && next >= 1) || (prev >= 1 && next < 1)) return true;
+        } else if ((prev < t && next >= t) || (prev >= t && next < t) || (lo < t && hi > t)) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    const tickGeometry = () => {
+      if (!useGeometry || !observed.size) {
+        rafId = null;
+        return;
+      }
+      const rawRoot = root ? root.getBoundingClientRect() : null;
+      if (rawRoot) {
+        const rr = {
+          left: rawRoot.left - marginsSpec.left,
+          top: rawRoot.top - marginsSpec.top,
+          right: rawRoot.right + marginsSpec.right,
+          bottom: rawRoot.bottom + marginsSpec.bottom,
+          width: rawRoot.width + marginsSpec.left + marginsSpec.right,
+          height: rawRoot.height + marginsSpec.top + marginsSpec.bottom
+        };
+        for (const [el, meta] of Array.from(observed.entries())) {
+          const tr = el.getBoundingClientRect();
+          const il = Math.max(rr.left, tr.left);
+          const it = Math.max(rr.top, tr.top);
+          const ir = Math.min(rr.right, tr.right);
+          const ib = Math.min(rr.bottom, tr.bottom);
+          const iw = Math.max(0, ir - il);
+          const ih = Math.max(0, ib - it);
+          const area = tr.width * tr.height;
+          const ratio = area > 0 ? Math.min(1, Math.max(0, (iw * ih) / area)) : 0;
+          const prev = meta.prevRatio;
+          const shouldFire = meta.initial
+            ? prev !== ratio &&
+              thresholds.some((t: number) => t >= Math.min(prev, ratio) && t <= Math.max(prev, ratio))
+            : crossedThreshold(prev, ratio);
+          meta.initial = false;
+          if (shouldFire) {
+            meta.prevRatio = ratio;
+            meta.callback({
+              intersectionRatio: ratio,
+              intersectionRect: relativeRect({ left: il, top: it, right: il + iw, bottom: it + ih, width: iw, height: ih }),
+              boundingClientRect: relativeRect(tr),
+              relativeRect: relativeRect(rr),
+              id: el.id,
+              dataset: readDataset(el),
+              time: Date.now()
+            });
+          } else {
+            meta.prevRatio = ratio;
+          }
+        }
+      }
+      if (useGeometry && observed.size) rafId = requestAnimationFrame(tickGeometry);
+      else rafId = null;
+    };
+
+    const startGeometry = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(tickGeometry);
+    };
+
+    const stopGeometry = () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+    };
 
     const ensure = () => {
       if (observer) return observer;
@@ -249,17 +351,6 @@ export class Query {
               )
                 continue;
             }
-            const base = page?.getBoundingClientRect();
-            const relativeRect = (rect: DOMRectReadOnly) => ({
-              left: rect.left - (base?.left ?? 0),
-              top: rect.top - (base?.top ?? 0),
-              right: rect.right - (base?.left ?? 0),
-              bottom: rect.bottom - (base?.top ?? 0),
-              width: rect.width,
-              height: rect.height,
-              x: rect.left - (base?.left ?? 0),
-              y: rect.top - (base?.top ?? 0)
-            });
             meta.callback({
               intersectionRatio: entry.intersectionRatio,
               intersectionRect: relativeRect(entry.intersectionRect),
@@ -277,34 +368,50 @@ export class Query {
     };
 
     const reset = (margins?: any) => {
+      marginsSpec = {
+        top: parseMargin(margins?.top),
+        right: parseMargin(margins?.right),
+        bottom: parseMargin(margins?.bottom),
+        left: parseMargin(margins?.left)
+      };
       const value = (input: any) => (typeof input === 'number' ? `${input}px` : (input ?? '0px'));
       rootMargin = `${value(margins?.top)} ${value(margins?.right)} ${value(margins?.bottom)} ${value(margins?.left)}`;
       observer?.disconnect();
       observer = null;
-      for (const el of observed.keys()) ensure().observe(el);
+      stopGeometry();
+      if (useGeometry) {
+        if (observed.size) startGeometry();
+      } else {
+        for (const el of observed.keys()) ensure().observe(el);
+      }
     };
 
     const api = {
       relativeTo: (selector: string, margins?: any) => {
         root = scope ? (selectElements(scope, selector)[0] ?? null) : null;
+        useGeometry = true;
         reset(margins);
         return api;
       },
       relativeToViewport: (margins?: any) => {
         root = page;
+        useGeometry = false;
         reset(margins);
         return api;
       },
       observe: (selector: string, callback: (res: any) => void) => {
         const targets = scope ? selectElements(scope, selector) : [];
+        const initialRatio = Number(options?.initialRatio ?? 0);
         for (const el of options?.observeAll ? targets : targets.slice(0, 1)) {
-          observed.set(el, { initial: true, callback });
-          ensure().observe(el);
+          observed.set(el, { initial: true, prevRatio: initialRatio, callback });
+          if (useGeometry) startGeometry();
+          else ensure().observe(el);
         }
       },
       disconnect() {
         observer?.disconnect();
         observer = null;
+        stopGeometry();
         observed.clear();
       }
     };

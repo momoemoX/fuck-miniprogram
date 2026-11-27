@@ -9,7 +9,10 @@
 export type Dep = string[];
 
 function viewValue(value: any) {
-  const serialized = JSON.stringify(value);
+  if (value instanceof Date) return {};
+  const serialized = JSON.stringify(value, function (key, v) {
+    return this && this[key] instanceof Date ? {} : v;
+  });
   return serialized === undefined ? undefined : JSON.parse(serialized);
 }
 

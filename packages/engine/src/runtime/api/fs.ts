@@ -184,7 +184,7 @@ export class FsApi {
     if (!entry || entry.directory) {
       if (getTempFile(path)) {
         const temp = getTempFile(path)!;
-        const created: Entry = { path, blob: temp.blob, directory: false, mtime: temp.createdAt };
+        const created: Entry = { path, blob: temp.blob, bytes: temp.bytes, directory: false, mtime: temp.createdAt };
         this.entries.set(path, created);
         return created;
       }
@@ -396,9 +396,9 @@ export class FsApi {
   }
 
   /** 供网络模块保存下载文件 */
-  async saveBlob(path: string, blob: Blob) {
+  async saveBlob(path: string, blob: Blob, bytes?: Uint8Array<ArrayBuffer>) {
     const target = normalize(path);
-    this.put(target, blob, { bytes: new Uint8Array(await blob.arrayBuffer()) });
+    this.put(target, blob, { bytes: bytes ?? new Uint8Array(await blob.arrayBuffer()) });
     return target;
   }
 
@@ -608,12 +608,16 @@ export class FsApi {
       saveFile: (options: any) =>
         invoke('saveFile', options, async opts => {
           await this.ready;
-          const blob = await blobFromPath(opts.tempFilePath);
+          const raw = String(opts.tempFilePath ?? '');
+          const source = normalize(raw);
+          if (!getTempFile(raw) && !source.startsWith(`${TMP_ROOT}/`)) {
+            throw new Error(`tempFilePath is not a temporary file: ${raw}`);
+          }
+          const blob = await blobFromPath(raw);
           const name = opts.filePath ? normalize(opts.filePath) : `${STORE_ROOT}/${uid('saved')}`;
           this.put(name, blob, { bytes: new Uint8Array(await blob.arrayBuffer()) });
-          const source = normalize(opts.tempFilePath);
           if (source !== name && source.startsWith(`${TMP_ROOT}/`)) this.erase(source);
-          if (getTempFile(source)) removeTempFile(source);
+          if (getTempFile(raw)) removeTempFile(raw);
           return { savedFilePath: name };
         }),
       saveFileSync: (tempFilePath: string, filePath?: string) => {
@@ -680,7 +684,11 @@ export class FsApi {
         if (!handle.write) throw new Error('bad file descriptor: not writable');
         this.resize(handle.entry, options.length);
       },
-      truncateSync: (filePath: string, length = 0) => this.resize(this.require(normalize(filePath)), length),
+      truncateSync: (filePathOrOpts: string | { filePath: string; length?: number }, length = 0) => {
+        const target = typeof filePathOrOpts === 'object' && filePathOrOpts !== null ? filePathOrOpts.filePath : filePathOrOpts;
+        const size = typeof filePathOrOpts === 'object' && filePathOrOpts !== null ? (filePathOrOpts.length ?? 0) : length;
+        return this.resize(this.require(normalize(target)), size);
+      },
       readCompressedFile: (options: any) =>
         invoke('readCompressedFile', options, async opts => {
           if (opts.compressionAlgorithm !== 'br') throw new Error('unsupported compression algorithm');

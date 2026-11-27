@@ -28,7 +28,6 @@ export interface PickerColumn {
   values: string[];
   defaultIndex?: number;
   label?: string;
-  numeric?: boolean;
 }
 
 export interface PickerOptions {
@@ -194,7 +193,6 @@ export function showPicker(overlay: HTMLElement, options: PickerOptions): Picker
   const cancel = element('button', 'fmp-picker-cancel', options.cancelText || '取消');
   const confirm = element('button', 'fmp-picker-confirm', options.confirmText || '确定');
   header.append(cancel, confirm);
-  const inputs = element('div', 'fmp-picker-inputs');
   const body = element('div', 'fmp-picker-body');
   body.append(element('div', 'fmp-picker-mask'), element('div', 'fmp-picker-indicator'));
   let columns = options.columns.map(column => ({ ...column }));
@@ -214,27 +212,13 @@ export function showPicker(overlay: HTMLElement, options: PickerOptions): Picker
   const build = (from = 0) => {
     for (const [index, timer] of timers) if (index >= from) { clearTimeout(timer); timers.delete(index); }
     for (const node of Array.from(body.querySelectorAll('.fmp-picker-column')).slice(from)) node.remove();
-    for (const node of Array.from(inputs.children).slice(from)) node.remove();
     columns.forEach((column, index) => {
       if (index < from) return;
       const list = element('div', 'fmp-picker-column');
       list.setAttribute('role', 'listbox');
       list.setAttribute('aria-label', column.label || `第${index + 1}列`);
-      const controls = element('div', 'fmp-picker-input');
-      const input = document.createElement('input');
-      if (column.numeric) {
-        input.type = 'number';
-        input.setAttribute('aria-label', column.label || `第${index + 1}列`);
-        input.min = column.values[0] || '0';
-        input.max = column.values[column.values.length - 1] || '0';
-        input.step = '1';
-        input.value = String(Number(column.values[indexes[index]]));
-        controls.append(element('span', '', column.label), input);
-      }
-      inputs.appendChild(controls);
       const paint = () => {
         Array.from(list.children).forEach((item, i) => item.setAttribute('aria-selected', String(i === indexes[index])));
-        if (column.numeric) input.value = String(Number(column.values[indexes[index]]));
       };
       const select = (next: number) => {
         clearTimeout(timers.get(index));
@@ -247,12 +231,9 @@ export function showPicker(overlay: HTMLElement, options: PickerOptions): Picker
       column.values.forEach((value, valueIndex) => {
         const item = element('div', 'fmp-picker-item', value);
         item.setAttribute('role', 'option');
+        if (column.label) item.setAttribute('aria-label', `${value}${column.label}`);
         item.addEventListener('click', () => select(valueIndex));
         list.appendChild(item);
-      });
-      input.addEventListener('input', () => {
-        const next = column.values.findIndex(value => Number(value) === input.valueAsNumber);
-        if (next >= 0) select(next);
       });
       list.addEventListener('scroll', () => {
         if (closed || !list.isConnected) return;
@@ -277,7 +258,7 @@ export function showPicker(overlay: HTMLElement, options: PickerOptions): Picker
   dim.addEventListener('click', () => { close(); options.onCancel?.(); });
   cancel.addEventListener('click', () => { close(); options.onCancel?.(); });
   confirm.addEventListener('click', () => { const result = indexes.slice(); close(); options.onConfirm(result); });
-  panel.append(header, inputs, body);
+  panel.append(header, body);
   wrapper.append(dim, panel);
   overlay.appendChild(wrapper);
   build();
@@ -286,9 +267,20 @@ export function showPicker(overlay: HTMLElement, options: PickerOptions): Picker
     selectedIndexes: () => indexes.slice(),
     update: (next, nextIndexes) => {
       if (closed) return;
+      const previous = columns;
+      const previousIndexes = indexes;
+      let from = 0;
+      while (from < Math.min(previous.length, next.length) &&
+        previous[from].label === next[from].label &&
+        previous[from].values.length === next[from].values.length &&
+        previous[from].values.every((value, index) => value === next[from].values[index])) from++;
       columns = next.map(column => ({ ...column }));
       indexes = columns.map((column, index) => clamp(nextIndexes?.[index] ?? indexes[index] ?? column.defaultIndex ?? 0, index));
-      build();
+      Array.from(body.querySelectorAll<HTMLElement>('.fmp-picker-column')).slice(0, from).forEach((list, index) => {
+        Array.from(list.children).forEach((item, i) => item.setAttribute('aria-selected', String(i === indexes[index])));
+        if (previousIndexes[index] !== indexes[index]) list.scrollTop = indexes[index] * PICKER_ITEM_HEIGHT;
+      });
+      build(from);
     }
   };
 }

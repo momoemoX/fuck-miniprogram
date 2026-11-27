@@ -5,7 +5,7 @@
  */
 
 import { CanvasApi } from './canvas';
-import { createCacheManager } from './cache-manager';
+import { RequestCaches } from './cache-manager';
 import { DeviceApi } from './device';
 import { FsApi } from './fs';
 import { LocationApi } from './location';
@@ -40,7 +40,8 @@ export function createApi(
   system.attach();
   const fs = new FsApi(host);
   const media = new MediaApi(host);
-  const network = new NetworkApi(host, fs, options.networkTimeout ?? {});
+  const caches = new RequestCaches();
+  const network = new NetworkApi(host, fs, options.networkTimeout ?? {}, caches);
   const ui = new UiApi(host);
   const route = new RouteApi(host);
   const open = new OpenApi(host);
@@ -80,7 +81,7 @@ export function createApi(
   api.createSelectorQuery = queryApi.createSelectorQuery;
   api.createIntersectionObserver = queryApi.createIntersectionObserver;
   api.createMediaQueryObserver = queryApi.createMediaQueryObserver;
-  api.createCacheManager = createCacheManager;
+  api.createCacheManager = (opts?: any) => caches.create(opts);
 
   const plainComponents = new Set(['view', 'text', 'block', 'slot', 'movable-area', 'swiper-item', 'picker-view-column']);
   const commonAttributes = new Set(['id', 'class', 'style', 'hidden', 'hover-class', 'hover-start-time', 'hover-stay-time']);
@@ -128,6 +129,7 @@ export function createApi(
     wx,
     ready: fs.ready,
     dispose: () => {
+      caches.dispose();
       network.dispose();
       media.dispose();
       canvas.dispose();

@@ -1,0 +1,40 @@
+wx-live-player {
+  display: inline-block;
+  position: relative;
+  width: 300px;
+  height: 225px;
+  overflow: hidden;
+  background-color: #000;
+  line-height: 0;
+}
+
+wx-live-pusher {
+  display: block;
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background-color: #000;
+}
+
+wx-live-pusher > .wx-live-pusher-placeholder {
+  position: absolute;
+  inset: 0;
+}
+
+wx-functional-page-navigator {
+  display: block;
+  width: auto;
+  height: auto;
+}
+
+wx-ad {
+  display: block !important;
+  width: 100%;
+  opacity: 1 !important;
+  pointer-events: auto;
+}
+
+wx-camera,
+wx-web-view {
+  width: 100%;
+}

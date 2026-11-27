@@ -12,7 +12,7 @@ import { pageStyles } from './styles';
 import { createComponent, flattenPage, flushComponentLifecycles, type ComponentContext, type ComponentHandle } from './component';
 import { createRequire, currentModule, hasModule, loadModule, normalize, registerModule, resetModules, setResolveAlias } from './modules';
 import { defineNativeElements, NATIVE_CSS, setNavigator } from './native';
-import { animateIn, clearIn, lastFunction, parseAnimateOptions } from './animate';
+import { animateIn, clearIn, disposeAnimations, lastFunction, parseAnimateOptions } from './animate';
 import { installGestureLayer } from './gesture';
 import { logicalElements } from './hosts';
 import type { RenderParent } from './range';
@@ -38,6 +38,7 @@ export interface PageConfig {
 
 export interface AppConfig {
   pages: string[];
+  lazyCodeLoading?: 'requiredComponents';
   subpackages?: Array<{ root: string; pages: string[]; independent?: boolean }>;
   networkTimeout?: Record<string, number>;
   requiredPrivateInfos?: string[];
@@ -107,8 +108,8 @@ export function Behavior(definition: any) {
   return registerBehavior(definition);
 }
 
-export function getApp() {
-  return runtime?.appInstance ?? null;
+export function getApp(options?: { allowDefault?: boolean }) {
+  return runtime?.application(options?.allowDefault === true);
 }
 
 const PAGE_CSS = `
@@ -116,11 +117,11 @@ const PAGE_CSS = `
 html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
 body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
 .fmp-pages { --fmp-pull: 0px; }
-.fmp-pages wx-page { position: absolute; inset: 0; display: block; overflow-y: auto; overflow-x: hidden;
+.fmp-pages wx-page { position: absolute; top: var(--fmp-pull, 0px); right: 0; bottom: 0; left: 0; display: block; overflow-y: auto; overflow-x: hidden;
   -webkit-overflow-scrolling: touch; box-sizing: border-box;
-  /* 让页面内的 position:fixed 相对页面容器（等价于官方 iframe 的视口），而不是浏览器窗口 */
-  /* 下拉刷新用 translateY 让位，不影响 fixed 的包含块 */
-  transform: translate3d(0, var(--fmp-pull, 0px), 0); transition: transform .2s ease-out; }
+  /* position:fixed 由外层非滚动容器 .fmp-pages (transform: translateZ(0)) 充当包含块；
+     wx-page 自身不能设 transform，否则 fixed 元素会跟随 wx-page 一起滚动 */
+  transition: top .2s ease-out; }
 .fmp-pages wx-page[hidden] { display: none; }
 .fmp-refresher { transition: opacity .2s ease; }
 wx-slot, wx-slot-body { display: contents; }
@@ -193,6 +194,107 @@ function clone<T>(value: T): T {
 
 class Runtime {
   appInstance: any;
+  private defaultApp: any;
+  private readyPackages = new Set<string>();
+  private loadingPackages = new Map<string, Promise<void>>();
+
+  application(allowDefault = false) {
+    if (this.appInstance) return this.appInstance;
+    if (allowDefault) return (this.defaultApp ??= {});
+    return undefined;
+  }
+
+  private packageOf(id: string) {
+    const pkgs: Array<{ root: string; pages?: string[]; independent?: boolean }> =
+      this.config.subpackages ?? (this.config as any).subPackages ?? [];
+    return pkgs.find(pkg => {
+      const base = String(pkg?.root ?? '').replace(/^\/+|\/+$/g, '');
+      return base && (id === base || id.startsWith(`${base}/`));
+    });
+  }
+
+  private initializeApp() {
+    if (this.appInstance) return;
+    if (hasModule('app')) loadModule('app');
+    if (!appDef) return;
+    this.appInstance = this.defaultApp ?? {};
+    Object.setPrototypeOf(this.appInstance, appDef);
+    this.appInstance.globalData = { ...appDef.globalData, ...this.appInstance.globalData };
+    this.safely(() => appDef.onLaunch?.call(this.appInstance, { ...this.launch }), 'app.onLaunch');
+    this.safely(() => appDef.onShow?.call(this.appInstance, { ...this.launch }), 'app.onShow');
+  }
+
+  private preparePackage(root: string): Promise<void> {
+    if (this.readyPackages.has(root)) return Promise.resolve();
+    let pending = this.loadingPackages.get(root);
+    if (!pending) {
+      pending = Promise.resolve().then(() => {
+        this.readyPackages.add(root);
+      });
+      this.loadingPackages.set(root, pending);
+    }
+    return pending;
+  }
+
+  private mountComponent(
+    el: Element,
+    id: string,
+    parent: any,
+    listeners: Record<string, string>,
+    props: Record<string, unknown>,
+    options?: Parameters<ComponentContext['mount']>[5]
+  ): ComponentHandle {
+    const mount = (target: string, values: Record<string, unknown>) =>
+      createComponent(this.context, el, target, values, listeners, parent, {
+        ...options,
+        attributeProps: true,
+        page: options?.page ?? this.top()?.instance ?? null,
+        onDispose: callback => this.top()?.cleanups.push(callback)
+      });
+    const config = this.context.configOf?.(parent?.is ?? parent?.route) ?? {};
+    const tag = Object.keys(config.usingComponents ?? {}).find(name => config.usingComponents[name] === id);
+    const placeholder = config.componentPlaceholder?.[tag ?? ''];
+    const pkg = this.packageOf(id);
+    if (!pkg || this.readyPackages.has(pkg.root) || !placeholder) return mount(id, props);
+    const target = config.usingComponents?.[placeholder];
+    let current: ComponentHandle | undefined;
+    let native: Element | undefined;
+    let disposed = false;
+    let latest = props;
+    if (target) current = mount(target, latest);
+    else {
+      native = document.createElement(`wx-${placeholder}`);
+      el.appendChild(native);
+      for (const [key, value] of Object.entries(latest)) native.setAttribute(key, String(value ?? ''));
+    }
+    void this.preparePackage(pkg.root)
+      .then(() => {
+        if (disposed || this.destroyed || parent?.__destroyed) return;
+        current?.dispose();
+        el.replaceChildren();
+        delete (el as any).__wxComponent;
+        current = mount(id, latest);
+        native = undefined;
+        flushComponentLifecycles();
+      })
+      .catch(error => this.reportError(error));
+    return {
+      get instance() {
+        return current?.instance;
+      },
+      setProps(next) {
+        latest = next;
+        current?.setProps(next);
+        if (native) for (const [key, value] of Object.entries(next)) native.setAttribute(key, String(value ?? ''));
+      },
+      dispose() {
+        disposed = true;
+        current?.dispose();
+        native?.remove();
+      }
+    };
+  }
+
   private stack: PageRecord[] = [];
   private cachedTabs = new Map<string, PageRecord>();
   private launched = false;
@@ -230,13 +332,7 @@ class Runtime {
         if (!componentDefs.has(id)) loadModule(id);
         return componentDefs.get(id);
       },
-      mount: (el, id, parentInstance, listeners, props, options) =>
-        createComponent(this.context, el, id, props, listeners, parentInstance, {
-          ...options,
-          attributeProps: true,
-          page: options?.page ?? this.top()?.instance ?? null,
-          onDispose: callback => this.top()?.cleanups.push(callback)
-        }),
+      mount: (el, id, parentInstance, listeners, props, options) => this.mountComponent(el, id, parentInstance, listeners, props, options),
       reportError: error => this.reportError(error),
       configOf: id => config.componentConfig?.[id] ?? config.pageConfig?.[id] ?? {},
       scopeOf: id => this.scopeOf('components', 'fmp-component', id)
@@ -441,16 +537,10 @@ class Runtime {
 
     this.bindAppEvents();
 
-    if (hasModule('app')) loadModule('app');
-
-    if (appDef) {
-      this.appInstance = Object.create(appDef);
-      this.appInstance.globalData = appDef.globalData ?? {};
-      this.safely(() => appDef.onLaunch?.call(this.appInstance, { ...this.launch }), 'app.onLaunch');
-      this.safely(() => appDef.onShow?.call(this.appInstance, { ...this.launch }), 'app.onShow');
-    }
-
     const entry = this.config.entry ?? this.config.pages[0];
+    const pkg = this.packageOf(entry.split('?')[0]);
+    if (pkg) this.readyPackages.add(pkg.root);
+    if (!pkg?.independent) this.initializeApp();
     this.navigate(entry, 'reLaunch');
   }
 
@@ -567,6 +657,15 @@ class Runtime {
         this.emit('pageNotFound', payload);
       }
       return false;
+    }
+
+    const pkg = this.packageOf(target);
+    if (pkg) this.readyPackages.add(pkg.root);
+    if (!pkg?.independent) this.initializeApp();
+    if (this.config.lazyCodeLoading !== 'requiredComponents') {
+      for (const id of Object.values(this.config.pageConfig?.[target]?.usingComponents ?? {})) {
+        if (!this.packageOf(id) && hasModule(id)) loadModule(id);
+      }
     }
 
     if (!pageDefs.has(target) && !componentDefs.has(target)) {
@@ -739,6 +838,7 @@ class Runtime {
     instance.__handleError = (error: unknown) => this.reportError(error);
     instance.__onDispose = (callback: () => void) => record.cleanups.push(callback);
     const independent = this.isIndependentPage(route);
+    instance.__independent = independent;
     pageStyles(instance, el, pageScope, independent);
     instance.__store = store;
     instance.setData = (patch: Record<string, any>, callback?: () => void) => {
@@ -768,7 +868,7 @@ class Runtime {
       instance,
       holder: store.holder(store.rootScope() as Scope),
       builder: null as any,
-      cleanups: []
+      cleanups: [() => disposeAnimations(el)]
     };
 
     // 先入栈：组件挂载、页面事件里都要能拿到当前页
@@ -809,7 +909,16 @@ class Runtime {
     pageConfig: PageConfig,
     scope?: ScopeMark
   ): boolean {
-    const record: PageRecord = { route, query, el, instance: null, store: null!, builder: null!, holder: null!, cleanups: [] };
+    const record: PageRecord = {
+      route,
+      query,
+      el,
+      instance: null,
+      store: null!,
+      builder: null!,
+      holder: null!,
+      cleanups: [() => disposeAnimations(el)]
+    };
     const openerChannel = this.pendingChannel;
     const decodedQuery: Record<string, string> = {};
     for (const [k, v] of Object.entries(query)) {
@@ -824,6 +933,7 @@ class Runtime {
       deferReady: true,
       scope,
       initialize: (instance, store) => {
+        instance.__independent = this.isIndependentPage(route);
         instance.route = route;
         instance.__page = instance;
         instance.options = query;

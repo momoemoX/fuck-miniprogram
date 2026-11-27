@@ -1,10 +1,3 @@
-/**
- * 基础库内置组件（表单、滚动、展示类）
- *
- * 与 native.ts 里的媒体组件分开：这里都是布局 / 表单语义的组件，
- * 行为按微信文档实现（事件 detail、受控属性、表单收集规则）。
- */
-
 import { eventOwner } from './events';
 import { cloneData } from './definition';
 import { boundAttribute, hasBoundAttribute } from './attributes';
@@ -159,6 +152,16 @@ class WxButton extends HTMLElement {
     if (this.bound) return;
     this.bound = true;
     this.setAttribute('role', 'button');
+    this.addEventListener(
+      'click',
+      event => {
+        if (boolAttr(this, 'disabled') || this.hasAttribute('loading')) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      },
+      true
+    );
     this.addEventListener('click', event => this.onClick(event));
   }
 
@@ -346,7 +349,7 @@ class WxCheckbox extends HTMLElement {
   }
 
   static get observedAttributes() {
-    return ['checked', 'disabled'];
+    return ['checked', 'disabled', 'color'];
   }
 
   attributeChangedCallback() {
@@ -358,6 +361,7 @@ class WxCheckbox extends HTMLElement {
     this.setAttribute('aria-checked', String(checked));
     this.classList.toggle('is-checked', checked);
     this.classList.toggle('is-disabled', boolAttr(this, 'disabled'));
+    this.style.setProperty('--fmp-choice-color', this.getAttribute('color') || (this.tagName === 'WX-RADIO' ? '#07c160' : '#09bb07'));
   }
 
   get value(): string {
@@ -438,7 +442,7 @@ class WxRadio extends HTMLElement {
   }
 
   static get observedAttributes() {
-    return ['checked', 'disabled'];
+    return ['checked', 'disabled', 'color'];
   }
 
   attributeChangedCallback() {
@@ -450,6 +454,7 @@ class WxRadio extends HTMLElement {
     this.setAttribute('aria-checked', String(checked));
     this.classList.toggle('is-checked', checked);
     this.classList.toggle('is-disabled', boolAttr(this, 'disabled'));
+    this.style.setProperty('--fmp-choice-color', this.getAttribute('color') || (this.tagName === 'WX-RADIO' ? '#07c160' : '#09bb07'));
   }
 
   get value(): string {
@@ -520,17 +525,17 @@ class WxRadioGroup extends HTMLElement {
 
 const ICONS: Record<string, string> = {
   success:
-    '<path d="M4 12.5 9 17.5 20 6.5" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>',
+    '<circle cx="12" cy="12" r="10" fill="currentColor"/><path d="m7 12 3.3 3.3 6.7-6.7" fill="none" stroke="#fff" stroke-width="1.6"/>',
   success_no_circle:
-    '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M7.5 12.5 10.5 15.5 16.5 8.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+    '<path d="m3 12 6 6L21 6" fill="none" stroke="currentColor" stroke-width="2"/>',
   info: '<circle cx="12" cy="12" r="9.5" fill="currentColor"/><path d="M12 7.2v1.6M12 11v6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>',
   warn: '<circle cx="12" cy="12" r="9.5" fill="currentColor"/><path d="M12 6.8v6.4" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="17" r="1.4" fill="#fff"/>',
   waiting:
-    '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.6" stroke-dasharray="14 10" stroke-linecap="round"/>',
+    '<circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 5v7l4 3" fill="none" stroke="#fff" stroke-width="1.6"/>',
   cancel:
     '<circle cx="12" cy="12" r="9.5" fill="currentColor"/><path d="M8.6 8.6l6.8 6.8M15.4 8.6l-6.8 6.8" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>',
   download:
-    '<path d="M12 4v11m0 0 4.5-4.5M12 15 7.5 10.5M5 19h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+    '<circle cx="12" cy="12" r="10" fill="none" stroke="currentColor"/><path d="M12 5v12m-5-5 5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.6"/>',
   search:
     '<circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="m16 16 5 5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
   clear:
@@ -552,13 +557,20 @@ class WxIcon extends HTMLElement {
   }
 
   private render() {
-    const type = this.getAttribute('type') ?? 'success';
+    const type = this.getAttribute('type') ?? '';
+    if (!type) {
+      this.style.width = '';
+      this.style.height = '';
+      this.innerHTML = '';
+      return;
+    }
     const size = numberAttr(this, 'size', 23);
-    const color = this.getAttribute('color') ?? '';
+    const defaults: Record<string, string> = { success: '#07c160', success_no_circle: '#07c160', success_circle: '#07c160', info: '#10aeff', info_circle: '#10aeff', warn: '#fa5151', safe_warn: '#ffbe00', waiting: '#10aeff', waiting_circle: '#10aeff', cancel: '#fa5151', download: '#07c160', search: '#7f7f7f', clear: '#b2b2b2', circle: '#c9c9c9' };
+    const color = this.getAttribute('color') || defaults[type] || '#07c160';
     this.style.display = 'inline-block';
     this.style.width = `${size}px`;
     this.style.height = `${size}px`;
-    if (color) this.style.color = color;
+    this.style.color = color;
     this.innerHTML = `<svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">${ICONS[type] ?? ICONS.success}</svg>`;
   }
 }
@@ -567,7 +579,14 @@ class WxIcon extends HTMLElement {
 
 class WxProgress extends HTMLElement {
   static get observedAttributes() {
-    return ['percent', 'stroke-width', 'active-color', 'background-color', 'show-info', 'active', 'active-mode'];
+    return ['percent', 'stroke-width', 'active-color', 'color', 'background-color', 'show-info', 'font-size', 'border-radius', 'active', 'active-mode', 'duration'];
+  }
+
+  private fillAnimation?: Animation;
+  private displayedPercent = 0;
+
+  disconnectedCallback() {
+    this.fillAnimation?.cancel();
   }
 
   connectedCallback() {
@@ -584,20 +603,35 @@ class WxProgress extends HTMLElement {
   private render() {
     const percent = Math.min(100, Math.max(0, numberAttr(this, 'percent', 0)));
     const height = numberAttr(this, 'stroke-width', 6);
-    const active = this.getAttribute('active-color') ?? '#09bb07';
+    const active = this.getAttribute('active-color') ?? this.getAttribute('color') ?? '#09bb07';
     const background = this.getAttribute('background-color') ?? '#ebebeb';
+    const radius = Math.max(0, numberAttr(this, 'border-radius', 0));
     const track = this.querySelector('.wx-progress-track') as HTMLElement;
     const bar = this.querySelector('.wx-progress-bar') as HTMLElement;
     const info = this.querySelector('.wx-progress-info') as HTMLElement;
     if (!track || !bar || !info) return;
-    track.style.cssText = `height:${height}px;background:${background};border-radius:${height}px;overflow:hidden;`;
-    bar.style.cssText = `width:${percent}%;height:100%;background:${active};border-radius:${height}px;`;
+    track.style.cssText = `height:${height}px;background:${background};border-radius:${radius}px;overflow:hidden;`;
+    bar.style.cssText = `width:${percent}%;height:100%;background:${active};border-radius:${radius}px;`;
+    this.fillAnimation?.cancel();
+    this.fillAnimation = undefined;
     if (boolAttr(this, 'active')) {
+      const start = this.getAttribute('active-mode') === 'forwards' ? this.displayedPercent : 0;
+      const animation = bar.animate([{ width: `${start}%` }, { width: `${percent}%` }], {
+        duration: Math.abs(percent - start) * Math.max(0, numberAttr(this, 'duration', 30)),
+        fill: 'forwards',
+        easing: 'linear'
+      });
+      this.fillAnimation = animation;
+      animation.onfinish = () => {
+        if (this.isConnected && this.fillAnimation === animation) fire(this, 'activeend', { curPercent: percent });
+      };
       bar.style.backgroundImage = `linear-gradient(45deg, rgba(255,255,255,.35) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.35) 50%, rgba(255,255,255,.35) 75%, transparent 75%)`;
       bar.style.backgroundSize = '20px 20px';
       bar.style.animation = 'wx-progress-move 1s linear infinite';
     }
+    this.displayedPercent = percent;
     info.textContent = boolAttr(this, 'show-info') ? `${percent}%` : '';
+    info.style.fontSize = `${Math.max(0, numberAttr(this, 'font-size', 16))}px`;
     info.style.display = boolAttr(this, 'show-info') ? 'block' : 'none';
   }
 }
@@ -618,7 +652,7 @@ function richTextContent(value: unknown) {
 
 class WxRichText extends HTMLElement {
   static get observedAttributes() {
-    return ['nodes', 'user-select'];
+    return ['nodes', 'user-select', 'space'];
   }
 
   connectedCallback() {
@@ -633,20 +667,27 @@ class WxRichText extends HTMLElement {
   }
 
   attributeChangedCallback(name: string) {
-    if (name === 'nodes') this.render();
+    if (name === 'nodes' || name === 'space') this.render();
   }
 
   private render() {
     const nodes = boundAttribute(this, 'nodes');
     if (typeof nodes === 'string') {
       this.innerHTML = sanitize(nodes);
-      return;
-    }
-    if (!Array.isArray(nodes)) {
+    } else if (!Array.isArray(nodes)) {
       this.replaceChildren();
-      return;
+    } else {
+      this.replaceChildren(...nodes.map((node: any) => buildNode(node)));
     }
-    this.replaceChildren(...nodes.map((node: any) => buildNode(node)));
+    const spaces: Record<string, string> = { ensp: '\u2002', emsp: '\u2003', nbsp: '\u00a0' };
+    const space = spaces[this.getAttribute('space') ?? ''];
+    if (space) {
+      const walker = document.createTreeWalker(this, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) {
+        const text = walker.currentNode as Text;
+        text.data = text.data.replace(/ /g, space);
+      }
+    }
   }
 }
 
@@ -775,36 +816,39 @@ class WxNavigationBar extends HTMLElement {
 /* --------------------------------------------------------- page-container */
 
 class WxPageContainer extends HTMLElement {
-  static get observedAttributes() {
-    return ['show'];
+  static observedAttributes = ['show', 'position', 'round', 'overlay', 'duration'];
+  private shown = false;
+  private completion?: ReturnType<typeof setTimeout>;
+
+  connectedCallback() { this.apply(); }
+
+  disconnectedCallback() {
+    clearTimeout(this.completion);
+    this.shown = false;
+    this.classList.remove('is-show', 'is-leaving');
   }
 
-  connectedCallback() {
-    this.classList.add('wx-page-container');
-    this.apply();
-  }
-
-  attributeChangedCallback() {
-    this.apply();
-  }
+  attributeChangedCallback() { if (this.isConnected) this.apply(); }
 
   private apply() {
     const show = boolAttr(this, 'show');
     const position = this.getAttribute('position') ?? 'bottom';
-    const overlay = this.getAttribute('overlay') !== 'false';
+    const duration = Math.max(0, numberAttr(this, 'duration', 300));
     this.setAttribute('fmp-position', position);
+    this.classList.toggle('no-overlay', this.getAttribute('overlay') === 'false');
+    this.style.setProperty('--fmp-popup-duration', `${duration}ms`);
+    if (show === this.shown) return;
+    clearTimeout(this.completion);
+    this.shown = show;
+    fire(this, show ? 'beforeenter' : 'beforeleave');
     this.classList.toggle('is-show', show);
-    this.classList.toggle('no-overlay', !overlay);
-    if (show) {
-      fire(this, 'beforeenter', {});
-      fire(this, 'enter', {});
-      setTimeout(() => fire(this, 'afterenter', {}), 300);
-    } else if (this.classList.contains('was-show')) {
-      fire(this, 'beforeleave', {});
-      fire(this, 'leave', {});
-      setTimeout(() => fire(this, 'afterleave', {}), 300);
-    }
-    if (show) this.classList.add('was-show');
+    this.classList.toggle('is-leaving', !show);
+    fire(this, show ? 'enter' : 'leave');
+    this.completion = setTimeout(() => {
+      if (!this.isConnected) return;
+      this.classList.remove('is-leaving');
+      fire(this, show ? 'afterenter' : 'afterleave');
+    }, duration);
   }
 }
 
@@ -977,11 +1021,7 @@ class WxOfficialAccount extends HTMLElement {
   }
 }
 
-class WxFunctionalPageNavigator extends HTMLElement {
-  connectedCallback() {
-    this.style.display = 'none';
-  }
-}
+class WxFunctionalPageNavigator extends HTMLElement {}
 
 class FmpAd extends HTMLElement {
   connectedCallback() {
@@ -1019,42 +1059,52 @@ export const CONTROL_ELEMENTS: Record<string, CustomElementConstructor> = {
 };
 
 export const CONTROL_CSS = `
-wx-scroll-view { position: relative; }
+wx-scroll-view { position: static; overflow: visible; clip-path: inset(0); }
 wx-button[loading] { color: transparent; }
 wx-button[loading]::before { content: ''; position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px;
   border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: fmp-spin .8s linear infinite; color: #999; }
-wx-checkbox, wx-radio { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; vertical-align: middle; }
-.wx-checkbox-box, .wx-radio-box { width: 18px; height: 18px; box-sizing: border-box; border: 1px solid #d1d1d1; background: #fff; flex: none; position: relative; }
+wx-checkbox, wx-radio { display: inline-block; cursor: pointer; vertical-align: baseline; }
+.wx-checkbox-box, .wx-radio-box { display: inline-block; width: 24px; height: 24px; margin-right: 5px; vertical-align: middle; box-sizing: border-box; border: 1px solid #d1d1d1; background: #fff; position: relative; }
 .wx-checkbox-box { border-radius: 3px; }
 .wx-radio-box { border-radius: 50%; }
-wx-checkbox.is-checked .wx-checkbox-box { background: #07c160; border-color: #07c160; }
-wx-checkbox.is-checked .wx-checkbox-box::after { content: ''; position: absolute; left: 5px; top: 2px; width: 5px; height: 9px;
-  border-right: 2px solid #fff; border-bottom: 2px solid #fff; transform: rotate(45deg); }
-wx-radio.is-checked .wx-radio-box { border-color: #07c160; }
-wx-radio.is-checked .wx-radio-box::after { content: ''; position: absolute; left: 4px; top: 4px; width: 8px; height: 8px; border-radius: 50%; background: #07c160; }
-wx-checkbox.is-disabled, wx-radio.is-disabled { opacity: .5; }
-wx-icon { display: inline-block; vertical-align: middle; }
-wx-progress { display: flex; align-items: center; gap: 8px; }
+wx-checkbox.is-checked .wx-checkbox-box { background: #fff; color: var(--fmp-choice-color, #09bb07); }
+wx-checkbox.is-checked .wx-checkbox-box::after { content: ''; position: absolute; left: 7px; top: 3px; width: 6px; height: 11px;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
+wx-radio.is-checked .wx-radio-box { border-color: var(--fmp-choice-color, #07c160); background: var(--fmp-choice-color, #07c160); }
+wx-radio.is-checked .wx-radio-box::after { content: ''; position: absolute; left: 7px; top: 3px; width: 6px; height: 11px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+wx-checkbox.is-disabled .wx-checkbox-box, wx-radio.is-disabled .wx-radio-box { background: #e1e1e1; border-color: #d1d1d1; color: #adadad; }
+wx-radio.is-disabled .wx-radio-box::after { border-color: #adadad; }
+wx-icon { display: inline-block; font-size: 0; vertical-align: baseline; }
+wx-progress { display: flex; align-items: center; }
 .wx-progress-track { flex: 1; min-width: 0; }
-.wx-progress-info { font-size: 12px; color: #666; flex: none; }
-wx-rich-text { display: block; }
+.wx-progress-info { font-size: 16px; margin-left: 15px; min-width: 2em; flex: none; }
+wx-rich-text { display: inline; }
 wx-rich-text p { margin:0; }
 wx-page-meta, wx-navigation-bar { display: none; }
 wx-root-portal { display: contents; }
 wx-page-container { position: fixed; inset: 0; display: none; z-index: 100; }
-wx-page-container.is-show { display: block; }
-wx-page-container::before { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.5); opacity: 0; transition: opacity .3s; }
+wx-page-container.is-show, wx-page-container.is-leaving { display: block; }
+wx-page-container::before { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.7); opacity: 0; transition: opacity var(--fmp-popup-duration, 300ms); }
 wx-page-container.is-show::before { opacity: 1; }
 wx-page-container.no-overlay::before { display: none; }
-wx-page-container > * { position: absolute; left: 0; right: 0; bottom: 0; max-height: 80%; overflow: auto; background: #fff;
-  transform: translateY(100%); transition: transform .3s; }
+wx-page-container > * { position: absolute; box-sizing: border-box; left: 0; right: 0; bottom: 0; max-height: 100%; overflow: hidden; background: #fff;
+  transform: translateY(100%); transition: transform var(--fmp-popup-duration, 300ms), opacity var(--fmp-popup-duration, 300ms); }
 wx-page-container.is-show > * { transform: translateY(0); }
 wx-page-container[fmp-position="top"] > * { top: 0; bottom: auto; transform: translateY(-100%); }
 wx-page-container[fmp-position="top"].is-show > * { transform: translateY(0); }
-wx-page-container[fmp-position="center"] > * { top: 50%; left: 50%; right: auto; bottom: auto; transform: translate(-50%, -50%) scale(.9); opacity: 0; border-radius: 12px; }
+wx-page-container[fmp-position="left"] > * { left: 0; right: auto; top: 0; height: 100%; transform: translateX(-100%); }
+wx-page-container[fmp-position="right"] > * { left: auto; right: 0; top: 0; height: 100%; transform: translateX(100%); }
+wx-page-container[fmp-position="left"].is-show > *, wx-page-container[fmp-position="right"].is-show > * { transform: translateX(0); }
+wx-page-container[fmp-position="center"] > * { top: 50%; left: 50%; right: auto; bottom: auto; transform: translate(-50%, -50%) scale(.9); opacity: 0; }
 wx-page-container[fmp-position="center"].is-show > * { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-wx-cover-view { position: relative; z-index: 1; }
-wx-cover-image { display: block; overflow: hidden; }
+wx-page-container[round]:not([round="false"])[fmp-position="bottom"] > * { border-radius: 20px 20px 0 0; }
+wx-page-container[round]:not([round="false"])[fmp-position="top"] > * { border-radius: 0 0 20px 20px; }
+wx-page-container[round]:not([round="false"])[fmp-position="right"] > * { border-radius: 20px 0 0 20px; }
+wx-page-container[round]:not([round="false"])[fmp-position="left"] > * { border-radius: 0 20px 20px 0; }
+wx-page-container[round]:not([round="false"])[fmp-position="center"] > * { border-radius: 20px; }
+wx-cover-view { display: block; position: static; line-height: 19.2px; overflow: hidden; white-space: nowrap; }
+wx-cover-image { display: block; line-height: 19.2px; overflow: hidden; }
+wx-match-media { display: block; }
 wx-open-data { display: inline-block; overflow: hidden; }
 wx-live-player { display: block; position: relative; overflow: hidden; background: #000; }
 .wx-live-pusher-placeholder { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #111; color: #888; }

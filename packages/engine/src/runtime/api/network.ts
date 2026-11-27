@@ -4,6 +4,7 @@
  * 传输返回 Task 对象；生命周期由应用管理，页面切换不会取消传输。
  */
 
+import type { RequestCaches } from './cache-manager';
 import type { FsApi } from './fs';
 import { addTempFile, blobFromPath } from './temp-files';
 import type { WxHost } from './types';
@@ -66,7 +67,8 @@ export class NetworkApi {
   constructor(
     private readonly host: WxHost,
     private readonly fs: FsApi,
-    private readonly timeouts: Record<string, number> = {}
+    private readonly timeouts: Record<string, number> = {},
+    private readonly caches?: RequestCaches
   ) {}
 
   dispose() {
@@ -127,14 +129,20 @@ export class NetworkApi {
         controller.abort();
       },
       run: async <T>(read: (signal: AbortSignal) => Promise<T>): Promise<T> => {
+        let onAbort: (() => void) | undefined;
         try {
           if (controller.signal.aborted) throw new Error('abort');
-          return await read(controller.signal);
+          const aborted = new Promise<never>((_, reject) => {
+            onAbort = () => reject(new Error(reason || 'abort'));
+            controller.signal.addEventListener('abort', onAbort, { once: true });
+          });
+          return await Promise.race([read(controller.signal), aborted]);
         } catch (error) {
           if (reason) throw new Error(reason);
           throw error;
         } finally {
           clearTimeout(timer);
+          if (onAbort) controller.signal.removeEventListener('abort', onAbort);
           this.fetches.delete(controller);
         }
       }
@@ -236,14 +244,14 @@ export class NetworkApi {
 
     const method = String(options?.method ?? 'GET').toUpperCase();
     let url = String(options?.url ?? '');
-    if (!url) {
+    if (!url || !/^https?:\/\//i.test(url)) {
       void settle(
         'request',
         options,
         () => !this.disposed,
         () =>
           operation.run(async () => {
-            throw new Error('parameter error: "url" is required');
+            throw new Error(url ? `invalid url "${url}"` : 'parameter error: "url" is required');
           })
       );
       return task;
@@ -251,7 +259,9 @@ export class NetworkApi {
 
     const header: Record<string, string> = {};
     for (const [key, value] of Object.entries<any>(options?.header ?? {})) header[key.toLowerCase()] = String(value);
-    if (!header['content-type']) header['content-type'] = 'application/json';
+    if (!header['content-type'] && method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+      header['content-type'] = 'application/json';
+    }
 
     let body: BodyInit | undefined;
     if (method === 'GET' || method === 'HEAD') {
@@ -276,66 +286,69 @@ export class NetworkApi {
       () => !this.disposed,
       () =>
         operation.run(async signal => {
-          const response = await fetch(url, {
-            method,
-            headers: header,
-            body,
-            signal,
-            credentials: options?.withCredentials ? 'include' : 'same-origin'
-          });
+          const perform = async () => {
+            const response = await fetch(url, {
+              method,
+              headers: header,
+              body,
+              signal,
+              credentials: options?.withCredentials ? 'include' : 'same-origin'
+            });
 
-          const responseHeader: Record<string, string> = {};
-          response.headers.forEach((value, key) => {
-            responseHeader[key] = value;
-          });
-          events.emit('headers', { header: responseHeader, statusCode: response.status, cookies: [] });
+            const responseHeader: Record<string, string> = {};
+            response.headers.forEach((value, key) => {
+              responseHeader[key] = value;
+            });
+            events.emit('headers', { header: responseHeader, statusCode: response.status, cookies: [] });
 
-          const type = String(options?.responseType ?? 'text');
-          let data: any;
-          let buffer: ArrayBuffer | undefined;
+            const type = String(options?.responseType ?? 'text');
+            let data: any;
+            let buffer: ArrayBuffer | undefined;
 
-          if (options?.enableChunked) {
-            const reader = response.body?.getReader();
-            const chunks: Uint8Array[] = [];
-            if (reader) {
-              for (;;) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                if (value) {
-                  chunks.push(value);
-                  events.emit('chunk', { data: value.slice().buffer });
+            if (options?.enableChunked) {
+              const reader = response.body?.getReader();
+              const chunks: Uint8Array[] = [];
+              if (reader) {
+                for (;;) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  if (value) {
+                    chunks.push(value);
+                    events.emit('chunk', { data: value.slice().buffer });
+                  }
                 }
               }
+              const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+              const merged = new Uint8Array(total);
+              let offset = 0;
+              for (const chunk of chunks) {
+                merged.set(chunk, offset);
+                offset += chunk.length;
+              }
+              buffer = merged.buffer;
+              data = type === 'arraybuffer' ? buffer : new TextDecoder().decode(merged);
+            } else if (type === 'arraybuffer') {
+              data = await response.arrayBuffer();
+            } else {
+              data = await response.text();
             }
-            const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-            const merged = new Uint8Array(total);
-            let offset = 0;
-            for (const chunk of chunks) {
-              merged.set(chunk, offset);
-              offset += chunk.length;
-            }
-            buffer = merged.buffer;
-            data = type === 'arraybuffer' ? buffer : new TextDecoder().decode(merged);
-          } else if (type === 'arraybuffer') {
-            data = await response.arrayBuffer();
-          } else {
-            data = await response.text();
-          }
 
-          if (type !== 'arraybuffer' && (options?.dataType ?? 'json') === 'json' && typeof data === 'string') {
-            try {
-              data = JSON.parse(data);
-            } catch {
-              /* 保持文本 */
+            if (type !== 'arraybuffer' && (options?.dataType ?? 'json') === 'json' && typeof data === 'string') {
+              try {
+                data = JSON.parse(data);
+              } catch {
+                /* 保持文本 */
+              }
             }
-          }
 
-          return {
-            data,
-            statusCode: response.status,
-            header: responseHeader,
-            cookies: []
+            return {
+              data,
+              statusCode: response.status,
+              header: responseHeader,
+              cookies: []
+            };
           };
+          return this.caches ? this.caches.request(options, perform) : perform();
         })
     );
 
@@ -371,10 +384,10 @@ export class NetworkApi {
 
           const total = Number(response.headers.get('content-length') ?? 0);
           let received = 0;
-          let blob: Blob;
+          let bytes: Uint8Array<ArrayBuffer>;
           if (response.body && total > 0) {
             const reader = response.body.getReader();
-            const chunks: BlobPart[] = [];
+            const chunks: Uint8Array[] = [];
             for (;;) {
               const { done, value } = await reader.read();
               if (done) break;
@@ -388,19 +401,25 @@ export class NetworkApi {
                 cookies: []
               });
             }
-            blob = new Blob(chunks);
+            bytes = new Uint8Array(received);
+            let offset = 0;
+            for (const chunk of chunks) {
+              bytes.set(chunk, offset);
+              offset += chunk.length;
+            }
           } else {
-            blob = await response.blob();
-            events.emit('progress', { progress: 100, totalBytesWritten: blob.size, totalBytesExpectedToWrite: blob.size, cookies: [] });
+            bytes = new Uint8Array(await response.arrayBuffer());
+            events.emit('progress', { progress: 100, totalBytesWritten: bytes.length, totalBytesExpectedToWrite: bytes.length, cookies: [] });
           }
 
           if (this.disposed) throw new Error('abort');
 
+          const blob = new Blob([bytes], { type: response.headers.get('content-type') || '' });
           let filePath: string;
           if (options?.filePath) {
-            filePath = await this.fs.saveBlob(options.filePath, blob);
+            filePath = await this.fs.saveBlob(options.filePath, blob, bytes);
           } else {
-            filePath = addTempFile(blob, url.split('/').pop()).path;
+            filePath = addTempFile(blob, url.split('/').pop(), blob.type, bytes).path;
           }
           return { tempFilePath: filePath, filePath, statusCode: response.status };
         })
@@ -449,8 +468,10 @@ export class NetworkApi {
           for (const [key, value] of Object.entries<any>(options?.formData ?? {})) form.append(key, String(value));
           const name = options?.name || 'file';
           const filePath = options?.filePath;
+          let fileSize = 0;
           if (filePath) {
             const blob = await blobFromPath(filePath, preparing.signal);
+            fileSize = blob.size;
             const filename = options?.fileName || filePath.split('/').pop() || 'file';
             form.append(name, blob, filename);
           }
@@ -469,10 +490,13 @@ export class NetworkApi {
             }
             xhr.upload.onprogress = event => {
               if (!event.lengthComputable) return;
+              const ratio = event.total > 0 ? Math.min(1, event.loaded / event.total) : 1;
+              const expected = fileSize > 0 ? fileSize : event.total;
+              const sent = fileSize > 0 ? Math.round(ratio * fileSize) : event.loaded;
               events.emit('progress', {
-                progress: Math.round((event.loaded / event.total) * 100),
-                totalBytesSent: event.loaded,
-                totalBytesExpectedToSend: event.total
+                progress: Math.round(ratio * 100),
+                totalBytesSent: sent,
+                totalBytesExpectedToSend: expected
               });
             };
             xhr.onload = () => {
@@ -513,11 +537,18 @@ export class NetworkApi {
     let socket: WebSocket | null = null;
     const queue: Array<string | ArrayBuffer> = [];
     let opened = false;
+    let closed = false;
     const alive = () => !this.disposed;
 
     const task: any = {
       send(opts: any) {
         if (!alive()) return;
+        if (closed || (socket && (socket.readyState === WebSocket.CLOSING || socket.readyState === WebSocket.CLOSED))) {
+          const result = { errMsg: 'SocketTask.send:fail WebSocket is not connected' };
+          deliver(opts?.fail, result);
+          deliver(opts?.complete, result);
+          return;
+        }
         if (!opened) {
           queue.push(opts?.data);
           return;
@@ -534,6 +565,7 @@ export class NetworkApi {
       },
       close(opts: any) {
         if (!alive()) return;
+        closed = true;
         try {
           socket?.close(opts?.code ?? 1000, opts?.reason ?? '');
         } catch {
@@ -608,6 +640,7 @@ export class NetworkApi {
       this.sockets.delete(socket!);
       if (this.disposed) return;
       opened = false;
+      closed = true;
       const result = { code: event.code, reason: event.reason, wasClean: event.wasClean };
       events.emit('close', result);
       this.host.emit('socketClose', result);

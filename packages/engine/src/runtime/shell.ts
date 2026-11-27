@@ -106,7 +106,7 @@ html, body { margin: 0; height: 100%; background: radial-gradient(120% 80% at 50
 .fmp-capsule > span + span { position: relative; }
 .fmp-capsule > span + span::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 1px; background: currentColor; opacity: .25; transform: scaleX(.5); }
 .fmp-capsule svg { display: block; }
-.fmp-pages { flex: 1; position: relative; overflow: hidden; }
+.fmp-pages { flex: 1; position: relative; overflow: hidden; transform: translateZ(0); }
 .fmp-pages iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; }
 .fmp-tabbar { flex: none; height: calc(${TAB_BAR_HEIGHT}px + var(--fmp-safe-bottom, 0px)); padding-bottom: var(--fmp-safe-bottom, 0px); display: flex; border-top: .5px solid rgba(0,0,0,.1); box-sizing: border-box; }
 .fmp-tabbar.is-hidden { display: none; }
@@ -122,9 +122,6 @@ html, body { margin: 0; height: 100%; background: radial-gradient(120% 80% at 50
 .fmp-tabbar-text > .fmp-tabbar-dot { top: -3px; left: calc(100% + 1px); }
 .fmp-overlay { position: absolute; top: 0; right: 0; left: 0; height: 100%; pointer-events: none; z-index: 10; }
 .fmp-dialog-layer { position: absolute; inset: 0; pointer-events: none; }
-.fmp-picker-inputs { display: flex; }
-.fmp-picker-input { flex: 1; min-width: 0; display: flex; justify-content: center; align-items: center; gap: 6px; }
-.fmp-picker-input input { width: 5em; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font: inherit; }
 .fmp-preview { position: absolute; inset: 0; z-index: 100; background: #000; color: #fff; pointer-events: auto; }
 .fmp-preview-content { position: absolute; inset: 44px 0; display: flex; align-items: center; justify-content: center; }
 .fmp-preview-content img, .fmp-preview-content video { display: block; width: 100%; height: 100%; object-fit: contain; }

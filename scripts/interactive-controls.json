@@ -1,3 +1,30 @@
 {
-  "place": { "role": "button", "name": "地图中心" }
+  "place": {
+    "role": "button",
+    "name": "地图中心"
+  },
+  "picker.time": [
+    {
+      "role": "option",
+      "name": "^11时$"
+    },
+    {
+      "role": "option",
+      "name": "^30分$"
+    }
+  ],
+  "picker.date": [
+    {
+      "role": "option",
+      "name": "^2026年$"
+    },
+    {
+      "role": "option",
+      "name": "^02月$"
+    },
+    {
+      "role": "option",
+      "name": "^03日$"
+    }
+  ]
 }

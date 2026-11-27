@@ -377,7 +377,7 @@ function emitAttrs(e: Emitter, node: ElementNode, varName: string) {
     if (model) {
       // model: 只支持单一数据字段，复杂表达式无法回写
       if (typeof value === 'string' && value) {
-        e.raw(`$.model(${varName}, ${JSON.stringify(model)}, ${propExpression(value, e.locals, e.wxs)});`);
+        e.raw(`$.model(${varName}, ${JSON.stringify(model)}, ${modelExpression(value, e.locals, e.wxs)});`);
       }
       continue;
     }
@@ -433,7 +433,7 @@ function emitComponent(e: Emitter, node: ElementNode, parentVar: string) {
     if (model) {
       // model:<prop>：属性本身照常下发，同时登记回写父级数据的通道
       if (typeof value === 'string' && value) {
-        const spec = propExpression(value, e.locals, e.wxs);
+        const spec = modelExpression(value, e.locals, e.wxs);
         props.set(model, spec);
         models.set(model, spec);
       }
@@ -607,4 +607,10 @@ function indent(text: string, depth: number): string {
     .split('\n')
     .map(line => (line ? pad + line : line))
     .join('\n');
+}
+
+function modelExpression(value: string, locals: Set<string>, wxs: Set<string>): string {
+  const field = /^\s*\{\{\s*([A-Za-z_$][\w$]*)\s*\}\}\s*$/.exec(value)?.[1];
+  const model = field && !locals.has(field) && !wxs.has(field) ? field : null;
+  return `{ ...${propExpression(value, locals, wxs)}, model: ${JSON.stringify(model)} }`;
 }

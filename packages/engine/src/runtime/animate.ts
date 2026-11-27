@@ -81,27 +81,16 @@ export function toKeyframes(frames: any[]): Keyframe[] {
   });
 }
 
-export interface ScrollTimelineOptions {
-  scrollSource: string;
-  orientation?: 'vertical' | 'horizontal';
-  startScrollOffset?: number;
-  endScrollOffset?: number;
-  timeRange?: number;
-}
-
-/** this.animate(selector, keyframes, duration, [scrollTimeline | delay | ease | callback]) */
+/** this.animate(selector, keyframes, duration, [delay], [ease], [callback]) */
 export function parseAnimateOptions(duration: number, rest: any[]): AnimateOptions {
   let delay = 0;
   let easing = 'ease';
-  let scrollTimeline: ScrollTimelineOptions | undefined;
   for (const item of rest) {
     if (typeof item === 'number') delay = item;
     else if (typeof item === 'string') easing = item;
-    else if (item && typeof item === 'object' && typeof item.scrollSource === 'string') {
-      scrollTimeline = item as ScrollTimelineOptions;
-    }
   }
-  return { duration, delay, easing, scrollTimeline };
+  const scroll = rest.find(item => item && typeof item === 'object' && 'scrollSource' in item);
+  return { duration, delay, easing: scroll && !rest.some(item => typeof item === 'string') ? 'linear' : easing, scroll };
 }
 
 export function lastFunction(rest: any[]): (() => void) | undefined {
@@ -115,146 +104,82 @@ export interface AnimateOptions {
   duration?: number;
   delay?: number;
   easing?: string;
-  scrollTimeline?: ScrollTimelineOptions;
+  scroll?: { scrollSource: string; timeRange: number; startScrollOffset: number; endScrollOffset: number; orientation?: 'horizontal' | 'vertical' };
 }
 
-/** 记下每个元素最后一次动画的终态，clearAnimation 只清一部分属性时要靠它回填 */
-const applied = new WeakMap<Element, Record<string, string>>();
-const scrollCleanups = new WeakMap<Element, () => void>();
-
-function bindScrollAnimation(
-  root: Element,
-  target: HTMLElement,
-  keyframes: Keyframe[],
-  duration: number,
-  timeline: ScrollTimelineOptions
-) {
-  scrollCleanups.get(target)?.();
-  scrollCleanups.delete(target);
-
-  const source =
-    (ownedElements(root, timeline.scrollSource)[0] as HTMLElement | undefined) ??
-    (document.querySelector(timeline.scrollSource) as HTMLElement | null);
-  const timeRange = typeof timeline.timeRange === 'number' && timeline.timeRange > 0 ? timeline.timeRange : duration || 200;
-  const start = typeof timeline.startScrollOffset === 'number' ? timeline.startScrollOffset : 0;
-  const orientation = timeline.orientation === 'horizontal' ? 'horizontal' : 'vertical';
-
-  const animation = target.animate(keyframes, {
-    duration: timeRange,
-    easing: 'linear',
-    fill: 'both'
-  });
-  animation.pause();
-
-  const sync = () => {
-    if (!source) return;
-    const offset = orientation === 'horizontal' ? source.scrollLeft : source.scrollTop;
-    const maxScroll =
-      orientation === 'horizontal'
-        ? Math.max(0, source.scrollWidth - source.clientWidth)
-        : Math.max(0, source.scrollHeight - source.clientHeight);
-    const end = typeof timeline.endScrollOffset === 'number' ? timeline.endScrollOffset : maxScroll;
-    const span = end - start;
-    const progress = span <= 0 ? (offset >= end ? 1 : 0) : Math.min(1, Math.max(0, (offset - start) / span));
-    animation.currentTime = progress * timeRange;
-  };
-
-  sync();
-  if (source) source.addEventListener('scroll', sync, { passive: true });
-  scrollCleanups.set(target, () => {
-    if (source) source.removeEventListener('scroll', sync);
-    animation.cancel();
-  });
+interface PropertyAnimation {
+  animation: Animation;
+  original: string;
+  priority: string;
+  stop?: () => void;
 }
+const applied = new WeakMap<Element, Map<string, PropertyAnimation>>();
+const roots = new WeakMap<Element, Set<Element>>();
 
-/** 在 root（页面或组件）里按选择器找元素，播放关键帧，全部结束后回调 */
+export function disposeAnimations(root: Element) {
+  for (const target of roots.get(root) ?? []) clearTarget(target);
+  roots.delete(root);
+}
+function clearTarget(target: Element, names?: Set<string>) {
+  const records = applied.get(target);
+  if (!records) return;
+  for (const [name, record] of records) {
+    if (names && !names.has(name)) continue;
+    record.stop?.(); record.animation.cancel();
+    (target as HTMLElement).style.setProperty(name, record.original, record.priority);
+    records.delete(name);
+  }
+  if (!records.size) applied.delete(target);
+}
+function targetsIn(root: Element, selector: string) {
+  return [...new Set(selector.split(',').flatMap(item => item.trim() ? ownedElements(root, item.trim()) : []))];
+}
 export function animateIn(root: Element, selector: string, frames: any[], options: AnimateOptions = {}, callback?: () => void): void {
+  if (!Array.isArray(frames) || !frames.length) throw new TypeError('keyframes must be a non-empty array');
+  const duration = options.duration ?? 400;
+  if (!Number.isFinite(duration) || duration < 0) throw new TypeError('duration must be non-negative');
   const keyframes = toKeyframes(frames);
-  const targets = selector
-    .split(',')
-    .map(item => item.trim())
-    .filter(Boolean)
-    .flatMap(item => ownedElements(root, item));
-
-  if (!targets.length) {
-    callback?.();
-    return;
-  }
-
-  const last = keyframes[keyframes.length - 1] ?? {};
-  if (options.scrollTimeline) {
-    for (const target of targets) {
-      const host = target as HTMLElement;
-      if (!host.animate) continue;
-      const values: Record<string, string> = {};
-      for (const [name, value] of Object.entries(last)) {
-        if (name === 'offset' || name === 'easing' || value == null) continue;
-        values[name] = String(value);
-      }
-      applied.set(target, values);
-      bindScrollAnimation(root, host, keyframes, options.duration ?? 400, options.scrollTimeline);
-    }
-    callback?.();
-    return;
-  }
-
-  let remaining = targets.length;
+  const targets = targetsIn(root, selector);
+  const scroll = options.scroll;
+  const source = scroll ? ownedElements(root, scroll.scrollSource)[0] as HTMLElement : undefined;
+  if (scroll && (!source || source.tagName !== 'WX-SCROLL-VIEW' || !Number.isFinite(scroll.timeRange) || scroll.timeRange < 0 || !Number.isFinite(scroll.startScrollOffset) || !Number.isFinite(scroll.endScrollOffset) || scroll.endScrollOffset === scroll.startScrollOffset || (scroll.orientation && !['vertical','horizontal'].includes(scroll.orientation)))) throw new TypeError('invalid scroll timeline');
+  if (!targets.length) { callback?.(); return; }
+  let tracked = roots.get(root);
+  if (!tracked) roots.set(root, tracked = new Set());
+  const completions: Promise<unknown>[] = [];
   for (const target of targets) {
     const host = target as HTMLElement;
     if (!host.animate) continue;
-    scrollCleanups.get(target)?.();
-    scrollCleanups.delete(target);
-    const values: Record<string, string> = {};
-    for (const [name, value] of Object.entries(last)) {
-      if (name === 'offset' || name === 'easing' || value == null) continue;
-      values[name] = String(value);
+    tracked.add(target);
+    let records = applied.get(target);
+    if (!records) applied.set(target, records = new Map());
+    const properties = new Set(keyframes.flatMap(frame => Object.keys(frame).filter(name => !['offset','easing','composite'].includes(name))));
+    for (const name of properties) {
+      const previous = records.get(name);
+      previous?.stop?.(); previous?.animation.cancel();
+      const original = previous?.original ?? host.style.getPropertyValue(name);
+      const priority = previous?.priority ?? host.style.getPropertyPriority(name);
+      const animation = host.animate(keyframes.map(frame => ({ [name]: (frame as any)[name], ...(frame.offset === undefined ? {} : {offset:frame.offset}), ...(frame.easing ? {easing:frame.easing} : {}) })), { duration, delay: options.delay ?? 0, easing: options.easing ?? 'ease', fill: 'both' });
+      const record: PropertyAnimation = { animation, original, priority };
+      records.set(name, record);
+      if (source && scroll) {
+        animation.pause();
+        const update = () => {
+          const offset = scroll.orientation === 'horizontal' ? source.scrollLeft : source.scrollTop;
+          const time = (offset - scroll.startScrollOffset) / (scroll.endScrollOffset - scroll.startScrollOffset) * scroll.timeRange;
+          animation.currentTime = Math.max(0, Math.min(duration, time));
+        };
+        source.addEventListener('scroll', update, { passive: true });
+        record.stop = () => source.removeEventListener('scroll', update);
+        update();
+      } else completions.push(animation.finished.catch(() => undefined));
     }
-    applied.set(target, values);
-    const animation = host.animate(keyframes, {
-      duration: options.duration ?? 400,
-      delay: options.delay ?? 0,
-      easing: options.easing ?? 'ease',
-      fill: 'forwards'
-    });
-    animation.onfinish = () => {
-      remaining -= 1;
-      if (remaining === 0) callback?.();
-    };
   }
+  if (!scroll) void Promise.all(completions).then(() => { if (roots.has(root)) callback?.(); });
 }
-
-/** this.clearAnimation(selector, [options], callback)：options 里的属性恢复原值，其余保留终态 */
-export function clearIn(
-  root: Element,
-  selector: string,
-  options?: Record<string, unknown> | (() => void),
-  callback?: () => void
-): void {
-  if (typeof options === 'function') {
-    callback = options;
-    options = undefined;
-  }
-  const keep = options ? new Set(Object.keys(options).map(kebab)) : null;
-  const targets = selector
-    .split(',')
-    .map(item => item.trim())
-    .filter(Boolean)
-    .flatMap(item => ownedElements(root, item));
-
-  for (const target of targets) {
-    const host = target as HTMLElement;
-    scrollCleanups.get(target)?.();
-    scrollCleanups.delete(target);
-    const values = applied.get(target);
-    if (!values) continue;
-    for (const animation of host.getAnimations?.() ?? []) animation.cancel();
-    for (const name of Object.keys(values)) host.style.removeProperty(name);
-    if (keep) {
-      // 保留的属性写成内联值，并留在记录里，下一次 clearAnimation 才能一起清掉
-      const retained = Object.fromEntries(Object.entries(values).filter(([name]) => !keep.has(name)));
-      for (const [name, value] of Object.entries(retained)) host.style.setProperty(name, value);
-      applied.set(target, retained);
-    } else applied.delete(target);
-  }
+export function clearIn(root: Element, selector: string, options?: Record<string, unknown> | (() => void), callback?: () => void): void {
+  if (typeof options === 'function') { callback = options; options = undefined; }
+  const names = options ? new Set(Object.entries(options).filter(([,value]) => value === true).map(([name]) => /^(translate|rotate|scale|skew)/.test(name) ? 'transform' : kebab(name))) : undefined;
+  for (const target of targetsIn(root, selector)) clearTarget(target, names);
   callback?.();
 }
