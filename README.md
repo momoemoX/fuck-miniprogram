@@ -14,9 +14,10 @@ packages/
 ├── engine/   @fuck-miniprogram/engine  # Web runtime + WXML/WXSS/WXS compiler
 └── cli/      @fuck-miniprogram/cli     # CLI (`fmp dev` / `fmp build`)
 examples/
-└── starter/                            # Minimal starter project
+├── starter/                            # Minimal starter project
+└── showcase/                           # Host capability showcase (components, APIs, animation)
 tests/
-├── unit/                               # 21 unit test suites
+├── unit/                               # 33 unit test suites
 └── integration/                        # Compiler & bundle integration tests
 ```
 
@@ -29,6 +30,9 @@ pnpm test
 
 # Run the starter project in the browser with hot reload
 pnpm dev:starter
+
+# Run the showcase project (built-in components, runtime APIs, scroll animation)
+pnpm dev:showcase
 
 # Or use the CLI directly on any project directory
 node packages/cli/dist/index.js dev ./examples/starter --port 3000

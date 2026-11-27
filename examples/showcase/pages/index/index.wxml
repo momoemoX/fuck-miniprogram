@@ -1,0 +1,79 @@
+<wxs module="fmt">
+module.exports = {
+  badge: function (n) {
+    return n >= 5 ? 'HOT · ' + n : 'COUNT · ' + n;
+  },
+  percentText: function (p) {
+    return p + '%';
+  }
+};
+</wxs>
+
+<view class="hero">
+  <view class="hero-badge">PURE WEB RUNTIME</view>
+  <view class="hero-title">fuck-miniprogram</view>
+  <view class="hero-desc">直接把 WXML / WXSS / WXS / JS 编译运行在标准浏览器，无 VDOM、无 iframe 桥接。</view>
+  <view class="hero-stats">
+    <view class="stat">
+      <view class="stat-num">696/712</view>
+      <view class="stat-label">黑盒一致性</view>
+    </view>
+    <view class="stat">
+      <view class="stat-num">34</view>
+      <view class="stat-label">内置组件</view>
+    </view>
+    <view class="stat">
+      <view class="stat-num">#{{visits}}</view>
+      <view class="stat-label">本地缓存访问</view>
+    </view>
+  </view>
+</view>
+
+<view class="card">
+  <view class="card-head">
+    <view class="card-title">1. 双向绑定 &amp; WXS 表达式</view>
+    <view class="pill">{{fmt.badge(count)}}</view>
+  </view>
+  <counter-card model:count="{{count}}" accent-class="ext-border" />
+  <view class="input-row">
+    <view class="muted">父页面 model:value 实时镜像：{{note}}</view>
+    <input class="demo-input" model:value="{{note}}" placeholder="输入任意文本..." />
+  </view>
+</view>
+
+<view class="card {{darkCard ? 'card-dark' : ''}}">
+  <view class="card-head">
+    <view class="card-title">2. 内置组件交互</view>
+    <view class="row-inline">
+      <text class="muted">深色卡片</text>
+      <switch checked="{{darkCard}}" bindchange="onSwitchChange" />
+    </view>
+  </view>
+
+  <view class="meter-row">
+    <view class="muted">进度条 ({{fmt.percentText(progress)}})</view>
+    <progress percent="{{progress}}" stroke-width="8" border-radius="4" activeColor="#07c160" />
+  </view>
+
+  <view class="slider-wrap">
+    <slider value="{{progress}}" min="0" max="100" show-value="{{true}}" bindchange="onSliderChange" />
+  </view>
+
+  <view class="btn-row">
+    <button size="mini" type="primary" bindtap="onShowToast">Toast 提示</button>
+    <button size="mini" type="default" bindtap="onShowModal">Modal 弹窗</button>
+    <button size="mini" plain="{{true}}" bindtap="onOpenLab">进入 Lab 页 →</button>
+  </view>
+</view>
+
+<view class="card">
+  <view class="card-title">3. 核心能力清单（wx:for）</view>
+  <view class="feat-item" wx:for="{{features}}" wx:key="id">
+    <view class="feat-name">{{index + 1}}. {{item.name}}</view>
+    <view class="feat-tag">{{item.tag}}</view>
+  </view>
+</view>
+
+<view class="footer-cta">
+  <button type="primary" bindtap="onOpenLab">体验动画 / Canvas 2D / CacheManager →</button>
+</view>

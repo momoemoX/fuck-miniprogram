@@ -1,0 +1,32 @@
+<view class="card">
+  <view class="card-title">路由传参接收</view>
+  <view class="muted">来自首页：count={{fromCount}} · note="{{fromNote}}"</view>
+</view>
+
+<view class="card">
+  <view class="card-title">1. 滚动驱动关键帧动画（this.animate + scrollSource）</view>
+  <view class="muted">向下滚动下方区域，进度条随 scrollTop 实时插值变形：</view>
+  <view class="bar-track">
+    <view id="scroll-bar" class="scroll-bar" />
+  </view>
+  <scroll-view id="demo-scroll" scroll-y="{{true}}" class="demo-scroll">
+    <view class="scroll-filler">向下拖动滚动条 ↓</view>
+    <view class="scroll-filler mid">继续滚动体验 60fps 关键帧插值</view>
+    <view class="scroll-filler end">已到达底部（width: 260px）</view>
+  </scroll-view>
+</view>
+
+<view class="card">
+  <view class="card-title">2. Canvas 2D + Path2D 实时绘制</view>
+  <canvas id="lab-canvas" type="2d" class="lab-canvas" />
+</view>
+
+<view class="card">
+  <view class="card-title">3. wx.createCacheManager 规则匹配</view>
+  <view class="muted" style="margin-bottom: 16rpx">{{cacheResult}}</view>
+  <button size="mini" type="primary" bindtap="onTestCache">运行规则匹配测试</button>
+</view>
+
+<view class="back-wrap">
+  <button type="default" bindtap="onBack">← 返回首页</button>
+</view>

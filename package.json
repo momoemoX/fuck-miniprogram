@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
-    "dev:starter": "pnpm --filter @fuck-miniprogram/cli exec node dist/index.js dev examples/starter"
+    "dev:starter": "pnpm --filter @fuck-miniprogram/cli exec node dist/index.js dev examples/starter",
+    "dev:showcase": "pnpm --filter @fuck-miniprogram/cli exec node dist/index.js dev examples/showcase"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "FMP Showcase",
+  "usingComponents": {
+    "counter-card": "/components/counter-card/index"
+  }
+}

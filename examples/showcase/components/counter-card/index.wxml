@@ -1,0 +1,11 @@
+<view class="counter-box accent-class">
+  <view class="counter-info">
+    <view class="counter-label">{{label}}</view>
+    <view class="counter-sub">组件内部 setData 自动回写父页面</view>
+  </view>
+  <view class="counter-actions">
+    <view class="step-btn" bindtap="dec">-</view>
+    <view class="step-val">{{count}}</view>
+    <view class="step-btn primary" bindtap="inc">+</view>
+  </view>
+</view>
